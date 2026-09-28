@@ -19,15 +19,15 @@ export default function Navbar() {
       <div className="nav-brand">
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
           <img
-            src="/Nasa-logo.gif"
+            src="/nasa-logo.svg"
             alt="NASA Meatball Insignia"
             style={{
-              height: '48px',
-              width: '48px',
+              height: '46px',
+              width: 'auto',
               objectFit: 'contain',
-              borderRadius: '50%',
-              filter: 'drop-shadow(0 0 14px rgba(0, 240, 255, 0.45))',
-              transition: 'transform 0.3s ease'
+              filter: 'drop-shadow(0 0 12px rgba(0, 240, 255, 0.45))',
+              transition: 'transform 0.3s ease',
+              cursor: 'pointer'
             }}
             className="hover:scale-105"
           />
