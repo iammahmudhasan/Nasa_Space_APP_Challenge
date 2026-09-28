@@ -94,6 +94,7 @@ class AgentResponse(BaseModel):
     run_id: str
     query: str
     steps: List[AgentStep]
-    analysis: AnalysisResult
-    evidence: EvidenceDossier
+    analysis: Optional[AnalysisResult] = None
+    evidence: Optional[EvidenceDossier] = None
     scientific_explanation: str
+    is_in_scope: bool = True

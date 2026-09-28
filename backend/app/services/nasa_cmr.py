@@ -159,12 +159,25 @@ async def search_cmr_granules(
                     time_end = e.get("time_end", "")
                     granule_size = e.get("granule_size", "230.0")
 
-                    # Extract HDF / data download links
-                    data_links = [
+                    # Extract HDF scientific data download links and browse imagery
+                    hdf_links = [
                         link.get("href")
                         for link in e.get("links", [])
-                        if link.get("href", "").endswith(".hdf") or "data" in link.get("rel", "")
+                        if link.get("href", "").endswith(".hdf")
                     ]
+                    browse_links = [
+                        link.get("href")
+                        for link in e.get("links", [])
+                        if link.get("href", "").endswith(".jpg")
+                    ]
+                    other_data_links = [
+                        link.get("href")
+                        for link in e.get("links", [])
+                        if "data" in link.get("rel", "")
+                    ]
+
+                    download_url = hdf_links[0] if hdf_links else (other_data_links[0] if other_data_links else "")
+                    browse_url = browse_links[0] if browse_links else ""
 
                     granules.append({
                         "granule_id": e.get("id"),
@@ -174,7 +187,8 @@ async def search_cmr_granules(
                         "date": time_start[:10] if time_start else "",
                         "tile": "h26v06",
                         "size_mb": float(granule_size) if str(granule_size).replace(".", "").isdigit() else 230.0,
-                        "download_url": data_links[0] if data_links else "",
+                        "download_url": download_url,
+                        "browse_url": browse_url,
                         "collection": short_name,
                         "version": version
                     })

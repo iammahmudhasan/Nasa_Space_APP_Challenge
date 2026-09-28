@@ -5,6 +5,21 @@ export default function EvidenceDossier({ evidence, explanation }) {
   const [copied, setCopied] = useState(false);
 
   if (!evidence) {
+    if (explanation) {
+      return (
+        <div className="glass-panel dossier-panel" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--amber-warn)', borderBottom: '1px solid rgba(245, 158, 11, 0.2)', paddingBottom: '10px' }}>
+            <AlertCircle size={18} />
+            <span style={{ fontWeight: 600, fontSize: '0.88rem' }}>Constrained Scientific Scope Notice</span>
+          </div>
+          <div style={{ background: 'rgba(6, 9, 15, 0.7)', border: '1px solid rgba(245, 158, 11, 0.2)', borderRadius: '8px', padding: '14px', fontSize: '0.8rem', lineHeight: '1.5' }}>
+            <div style={{ whiteSpace: 'pre-wrap', color: 'var(--text-primary)' }}>
+              {explanation}
+            </div>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="glass-panel dossier-panel" style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '30px 15px' }}>
         <Shield size={28} style={{ margin: '0 auto 8px', opacity: 0.3 }} />

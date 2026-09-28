@@ -1,5 +1,5 @@
 import React from 'react';
-import { Cpu, CheckCircle2, Clock, Terminal, ChevronRight } from 'lucide-react';
+import { Cpu, CheckCircle2, Clock, Terminal, ChevronRight, AlertTriangle } from 'lucide-react';
 
 export default function ThoughtTrace({ steps, isRunning }) {
   return (
@@ -23,15 +23,23 @@ export default function ThoughtTrace({ steps, isRunning }) {
       )}
 
       {steps.map((step, idx) => (
-        <div key={idx} className={`step-card ${idx === steps.length - 1 && isRunning ? 'active' : ''}`}>
+        <div key={idx} className={`step-card ${idx === steps.length - 1 && isRunning ? 'active' : ''} ${step.status === 'OUT_OF_SCOPE' ? 'scope-warning-card' : ''}`}>
           <div className="step-header">
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span className="step-num-badge">STEP {step.step_number}</span>
-              <span style={{ fontWeight: 600, color: '#fff' }}>{step.step_name}</span>
+              <span className={`step-num-badge ${step.status === 'OUT_OF_SCOPE' ? 'step-badge-warn' : ''}`}>
+                STEP {step.step_number}
+              </span>
+              <span style={{ fontWeight: 600, color: step.status === 'OUT_OF_SCOPE' ? '#f59e0b' : '#fff' }}>
+                {step.step_name}
+              </span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span className="step-tool font-mono">{step.duration_ms}ms</span>
-              <CheckCircle2 size={14} color="var(--emerald-healthy)" />
+              {step.status === 'OUT_OF_SCOPE' ? (
+                <AlertTriangle size={14} color="#f59e0b" />
+              ) : (
+                <CheckCircle2 size={14} color="var(--emerald-healthy)" />
+              )}
             </div>
           </div>
 

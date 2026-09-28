@@ -1,11 +1,11 @@
 import math
 import numpy as np
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 from app.models.schemas import TimeSeriesPoint, AnalysisResult
 from app.tools.geospatial import get_coastal_bangladesh_geojson, COASTAL_BANGLADESH_REGIONS
 from app.science.stats import compute_mann_kendall, compute_sen_slope, compute_climatology_z_scores
 from app.science.processor import classify_vegetation_change
-from app.services.nasa_observations import fetch_real_nasa_observations
+from app.tools.data_retriever import retrieve_satellite_data
 
 def calculate_mann_kendall(values: List[float]) -> Tuple[float, float, bool]:
     """
@@ -17,24 +17,28 @@ def calculate_mann_kendall(values: List[float]) -> Tuple[float, float, bool]:
 async def run_scientific_analysis(
     region_id: str = "sundarbans_west",
     start_year: int = 2020,
-    end_year: int = 2025
+    end_year: int = 2025,
+    prefetched_retrieval: Optional[Dict[str, Any]] = None
 ) -> AnalysisResult:
     """
     Executes end-to-end scientific analysis on real NASA Earth observation series:
-    1. Fetches real empirical MODIS MOD13Q1 observations tied to live NASA CMR granules.
+    1. Ingests real NASA satellite data from data_retriever (backed by live CMR granules).
     2. Calculates ΔNDVI, Mann-Kendall trend, Sen's slope, and climatological Z-scores.
     3. Categorizes spatial hectarage by damage class based on deterministic calculations.
     """
     region = COASTAL_BANGLADESH_REGIONS.get(region_id, COASTAL_BANGLADESH_REGIONS["sundarbans_west"])
-    bbox_str = f"{region['center'][1] - 0.5},{region['center'][0] - 0.5},{region['center'][1] + 0.5},{region['center'][0] + 0.5}"
 
-    # 1. Fetch real NASA observations linked to CMR granules
-    timeseries, cmr_granules, meta = await fetch_real_nasa_observations(
-        region_id=region_id,
-        start_year=start_year,
-        end_year=end_year,
-        bounding_box=bbox_str
-    )
+    # 1. Fetch real NASA observations from data_retriever (CMR granule discovery + observation mapping)
+    if prefetched_retrieval:
+        retrieval = prefetched_retrieval
+    else:
+        retrieval = await retrieve_satellite_data(
+            region_id=region_id,
+            start_year=start_year,
+            end_year=end_year,
+            metric="NDVI"
+        )
+    timeseries = retrieval["timeseries"]
 
     # 2. Extract values for baseline (first year) and target (final year)
     first_year_points = [p.value for p in timeseries if p.date.startswith(str(start_year))]

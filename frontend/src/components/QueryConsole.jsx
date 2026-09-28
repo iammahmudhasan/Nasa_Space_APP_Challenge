@@ -42,6 +42,30 @@ export default function QueryConsole({
 }) {
   return (
     <div className="glass-panel query-box">
+      {/* V1 Constrained Scientific Domain Banner */}
+      <div style={{
+        background: 'rgba(0, 240, 255, 0.05)',
+        border: '1px solid rgba(0, 240, 255, 0.2)',
+        borderRadius: '8px',
+        padding: '8px 10px',
+        marginBottom: '10px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '4px'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--cyan-core)', letterSpacing: '0.05em' }} className="font-mono">
+            V1 CONSTRAINED DOMAIN: ENVIRONMENTAL CHANGE
+          </span>
+          <span style={{ fontSize: '0.65rem', background: 'rgba(0, 255, 157, 0.15)', color: '#00ff9d', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
+            Vegetation / NDVI Active
+          </span>
+        </div>
+        <div style={{ fontSize: '0.69rem', color: 'var(--text-muted)', lineHeight: '1.3' }}>
+          Sequential Roadmap: <strong>NDVI</strong> ➔ EVI ➔ LST (Temp) ➔ GPM Rain ➔ Multi-variable
+        </div>
+      </div>
+
       <div className="section-label">
         <Sparkles size={13} color="var(--cyan-glow)" />
         <span>Scientific Mission Prompt</span>

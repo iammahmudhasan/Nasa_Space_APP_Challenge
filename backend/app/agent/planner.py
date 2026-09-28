@@ -8,6 +8,7 @@ from app.models.schemas import (
     AnalysisResult, DatasetMetadata, GuardrailCheck
 )
 from app.tools.dataset_discovery import discover_dataset_for_query
+from app.tools.data_retriever import validate_scientific_scope, retrieve_satellite_data
 from app.tools.scientific_engine import run_scientific_analysis
 from app.agent.validator import run_scientific_guardrails
 from app.agent.prompts import build_scientific_synthesis
@@ -52,16 +53,56 @@ print(f"Attribution: NASA Earthdata DOI https://doi.org/{dataset.doi}")
 async def execute_agent_pipeline_stream(request: QueryRequest) -> AsyncGenerator[Dict[str, Any], None]:
     """
     Streams the autonomous scientific agent thought trace and calculations in real time.
+    Strictly constrained to Planetary Environmental Change (Vegetation / NDVI in V1).
     """
     run_id = f"neia-{uuid.uuid4().hex[:8]}"
     start_total = time.time()
     steps: List[AgentStep] = []
 
-    # Step 1: Question Understanding
+    # Step 1: Scientific Scope Validation & Question Understanding
     t0 = time.time()
-    query_lower = request.query.lower()
-    
+    metric = request.metric or "NDVI"
+    scope_check = validate_scientific_scope(request.query, metric=metric)
+
+    if not scope_check["valid"]:
+        duration = int((time.time() - t0) * 1000)
+        step1 = AgentStep(
+            step_number=1,
+            step_name="Scientific Scope & Domain Verification",
+            tool_called="validate_scientific_scope",
+            tool_args={"query": request.query, "metric": metric},
+            status="OUT_OF_SCOPE",
+            summary=scope_check["reason"],
+            duration_ms=max(15, duration)
+        )
+        steps.append(step1)
+        yield {"type": "step", "data": step1.model_dump()}
+
+        explanation = (
+            f"### ⚠️ Query Outside Constrained Scientific Domain\n\n"
+            f"{scope_check['reason']}\n\n"
+            f"**Constrained V1 Domain**: Planetary Environmental Change  \n"
+            f"**Current Active Variable**: `Vegetation / NDVI` (MODIS MOD13Q1 250m)  \n\n"
+            f"#### 🛰️ Sequential Expansion Roadmap:\n"
+            + "\n".join([f"- {r}" for r in scope_check["roadmap"]])
+            + "\n\n#### 💡 Suggested Scientific Inquiries:\n"
+            + "\n".join([f"- *\"{q}\"*" for q in scope_check["suggested_queries"]])
+        )
+
+        response = AgentResponse(
+            run_id=run_id,
+            query=request.query,
+            steps=steps,
+            analysis=None,
+            evidence=None,
+            scientific_explanation=explanation,
+            is_in_scope=False
+        )
+        yield {"type": "complete", "data": response.model_dump()}
+        return
+
     # Infer target region
+    query_lower = request.query.lower()
     region_id = request.region_id or "sundarbans_west"
     if "sundarbans east" in query_lower or "bagerhat" in query_lower:
         region_id = "sundarbans_east"
@@ -74,29 +115,28 @@ async def execute_agent_pipeline_stream(request: QueryRequest) -> AsyncGenerator
 
     start_yr = request.start_year or 2020
     end_yr = request.end_year or 2025
-    metric = request.metric or "NDVI"
     duration = int((time.time() - t0) * 1000)
 
     step1 = AgentStep(
         step_number=1,
-        step_name="Question Understanding & Spatial Decomposition",
-        tool_called="parse_inquiry_intent",
+        step_name="Scientific Scope Verification & Spatial Decomposition",
+        tool_called="validate_scientific_scope",
         tool_args={"query": request.query, "resolved_region": region_id, "time_range": [start_yr, end_yr]},
         status="COMPLETED",
-        summary=f"Extracted target location: '{region_id}', epoch: {start_yr}-{end_yr}, scientific phenomenon: {metric}",
-        duration_ms=max(12, duration)
+        summary=f"Verified scientific scope (V1: Environmental Change - Vegetation / NDVI). Target: '{region_id}', epoch: {start_yr}-{end_yr}.",
+        duration_ms=max(15, duration)
     )
     steps.append(step1)
     yield {"type": "step", "data": step1.model_dump()}
 
-    # Step 2: NASA Dataset Discovery
+    # Step 2: NASA CMR Collection Discovery
     t0 = time.time()
     dataset: DatasetMetadata = await discover_dataset_for_query(request.query, metric=metric)
     duration = int((time.time() - t0) * 1000)
 
     step2 = AgentStep(
         step_number=2,
-        step_name="NASA Earthdata Collection Discovery",
+        step_name="NASA CMR Earthdata Collection Discovery",
         tool_called="search_nasa_cmr",
         tool_args={"keyword": dataset.short_name, "concept_id": dataset.collection_concept_id},
         status="COMPLETED",
@@ -106,43 +146,55 @@ async def execute_agent_pipeline_stream(request: QueryRequest) -> AsyncGenerator
     steps.append(step2)
     yield {"type": "step", "data": step2.model_dump()}
 
-    # Step 3: Satellite Data Ingestion
+    # Step 3: NASA CMR Granule Acquisition & Data Retrieval
     t0 = time.time()
-    # Ingest time-series & spatial polygons
-    analysis: AnalysisResult = await run_scientific_analysis(
+    retrieval = await retrieve_satellite_data(
         region_id=region_id,
         start_year=start_yr,
-        end_year=end_yr
+        end_year=end_yr,
+        metric=metric
     )
     duration = int((time.time() - t0) * 1000)
 
     step3 = AgentStep(
         step_number=3,
-        step_name="Spatio-Temporal Observation Ingestion",
-        tool_called="retrieve_earth_data",
-        tool_args={"dataset": dataset.short_name, "bbox": analysis.bounding_box, "epochs": len(analysis.timeseries)},
+        step_name="NASA CMR Granule Acquisition & Data Retrieval",
+        tool_called="retrieve_satellite_data",
+        tool_args={
+            "dataset": dataset.short_name,
+            "sinusoidal_tile": retrieval["sinusoidal_tile"],
+            "granules_queried": retrieval["granules_found_in_cmr"],
+            "composites_ingested": retrieval["total_composites"]
+        },
         status="COMPLETED",
-        summary=f"Successfully ingested {len(analysis.timeseries)} temporal composites across {analysis.total_area_evaluated_ha:,.0f} ha.",
+        summary=f"Queried {retrieval['granules_found_in_cmr']} real NASA CMR granules (Tile {retrieval['sinusoidal_tile']}); ingested {retrieval['total_composites']} 16-day composites with QA masking.",
         duration_ms=max(35, duration)
     )
     steps.append(step3)
     yield {"type": "step", "data": step3.model_dump()}
 
-    # Step 4: Deterministic Scientific Analysis
+    # Step 4: Deterministic Scientific Engine Execution
     t0 = time.time()
+    analysis: AnalysisResult = await run_scientific_analysis(
+        region_id=region_id,
+        start_year=start_yr,
+        end_year=end_yr,
+        prefetched_retrieval=retrieval
+    )
     duration = int((time.time() - t0) * 1000)
 
     step4 = AgentStep(
         step_number=4,
-        step_name="Deterministic Math & ML Engine Execution",
-        tool_called="execute_scientific_analysis",
+        step_name="Deterministic Scientific Engine Execution",
+        tool_called="run_scientific_analysis",
         tool_args={
             "delta_ndvi": analysis.delta_absolute,
             "mann_kendall_score": analysis.mann_kendall_score,
-            "p_value": analysis.mann_kendall_p_value
+            "p_value": analysis.mann_kendall_p_value,
+            "sens_slope_annual": analysis.linear_slope_annual
         },
         status="COMPLETED",
-        summary=f"Calculated Delta NDVI = {analysis.delta_absolute:+.3f} ({analysis.delta_percentage:+.1f}%), MK test p = {analysis.mann_kendall_p_value:.4f} (Significant: {analysis.is_statistically_significant})",
+        summary=f"Calculated Delta NDVI = {analysis.delta_absolute:+.3f} ({analysis.delta_percentage:+.1f}%), MK test p = {analysis.mann_kendall_p_value:.4f} (Significant: {analysis.is_statistically_significant}), Sen's slope = {analysis.linear_slope_annual:+.4f}/yr",
         duration_ms=max(28, duration)
     )
     steps.append(step4)
