@@ -13,12 +13,52 @@
 Traditional AI chatbots often hallucinate numerical values, invent citations, and generate unsubstantiated claims when asked complex questions about Earth observation data.
 
 **NASA Earth Intelligence Agent (NEIA)** bridges the gap between natural-language user queries and verified, reproducible scientific Earth science pipelines. It is **not** a simple chatbot; it is an **autonomous scientific agent**:
-1. **Understands** natural language environmental inquiries across space and time.
-2. **Discovers & selects** appropriate NASA Earth observation products (CMR API, MODIS, VIIRS, Landsat, GPM).
-3. **Retrieves & validates** raw spatio-temporal satellite observations.
-4. **Executes deterministic scientific ML & statistical algorithms** (trend estimation, Mann-Kendall tests, z-score anomaly detection, spatial change classification).
-5. **Enforces strict zero-hallucination guardrails**: the LLM never invents numbers; all quantitative claims are mathematically derived by the Scientific Analysis Engine.
-6. **Outputs interactive geospatial maps, temporal trend charts, and an auditable Evidence & Provenance Dossier** with dataset DOIs and a downloadable reproducibility recipe.
+
+```
+                    USER
+                      │
+                      ▼
+              Natural Language
+                  Question
+                      │
+                      ▼
+              ┌──────────────┐
+              │   AI Agent   │
+              └──────┬───────┘
+                     │
+             What data do I need?
+                     │
+                     ▼
+              NASA Data Layer
+                     │
+                     ▼
+              Data Processing
+                     │
+                     ▼
+            Scientific Analysis
+                     │
+                     ▼
+               Visualization
+                     │
+                     ▼
+             Evidence + Answer
+```
+
+### 🔍 End-to-End Walkthrough Example
+When a user asks:
+> *"How has vegetation changed in coastal Bangladesh from 2020 to 2025?"*
+
+The system executes the following 10-stage deterministic pipeline:
+1. **User Question Ingestion:** Receives raw natural-language prompt.
+2. **Understand Location:** Resolves `location = Coastal Bangladesh` (Sundarbans, Satkhira, Khulna, Bhola, Cox's Bazar).
+3. **Understand Variable:** Identifies target indicator `variable = vegetation (NDVI / EVI)`.
+4. **Understand Period:** Extracts temporal baseline and target `period = 2020 to 2025`.
+5. **Find Appropriate NASA Dataset:** Queries NASA CMR API to match `MODIS/Terra MOD13Q1` (250m, 16-day composite) or `VIIRS VNP13A1`.
+6. **Retrieve Data:** Pulls multi-year satellite observation granules and cloud-masked quality flags.
+7. **Process Data:** Aggregates spatio-temporal arrays, normalizes values $[-1.0, +1.0]$, and prepares 72 monthly epochs.
+8. **Calculate Vegetation Change:** Computes $\Delta \text{NDVI}$, Mann-Kendall monotonic trend test ($p < 0.05$), and Z-score climatological anomalies.
+9. **Generate Map & Chart:** Renders interactive Leaflet geospatial polygon vectors and dual-trajectory SVG time-series charts with 95% confidence intervals.
+10. **Explain Result (Evidence-Based):** Synthesizes grounded natural-language findings strictly backed by computed values and authenticated NASA Earthdata DOIs.
 
 ---
 

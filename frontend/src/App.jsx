@@ -5,6 +5,7 @@ import MapViewer from './components/MapViewer';
 import TimeSeriesChart from './components/TimeSeriesChart';
 import ThoughtTrace from './components/ThoughtTrace';
 import EvidenceDossier from './components/EvidenceDossier';
+import PipelineFlow from './components/PipelineFlow';
 
 const API_BASE = 'http://localhost:8000';
 
@@ -109,6 +110,14 @@ export default function App() {
   return (
     <div className="app-container">
       <Navbar />
+
+      <div style={{ padding: '12px 24px 0 24px' }}>
+        <PipelineFlow
+          currentStepCount={steps.length}
+          isRunning={isLoading}
+          analysis={analysis}
+        />
+      </div>
 
       <main className="dashboard-grid">
         {/* Left Column: Inquiry Console & Agent Thought Feed */}
