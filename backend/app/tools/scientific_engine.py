@@ -3,41 +3,15 @@ import numpy as np
 from typing import List, Dict, Any, Tuple
 from app.models.schemas import TimeSeriesPoint, AnalysisResult
 from app.tools.geospatial import get_coastal_bangladesh_geojson, COASTAL_BANGLADESH_REGIONS
+from app.science.stats import compute_mann_kendall, compute_sen_slope, compute_climatology_z_scores
+from app.science.processor import classify_vegetation_change
 
 def calculate_mann_kendall(values: List[float]) -> Tuple[float, float, bool]:
     """
-    Computes the Mann-Kendall non-parametric monotonic trend test.
-    Returns: (tau_or_score, p_value, is_significant)
+    Wrapper around pure science module: app.science.stats.compute_mann_kendall
     """
-    n = len(values)
-    if n < 4:
-        return 0.0, 1.0, False
-    
-    s = 0
-    for k in range(n - 1):
-        for j in range(k + 1, n):
-            diff = values[j] - values[k]
-            if diff > 0:
-                s += 1
-            elif diff < 0:
-                s -= 1
-
-    # Variance of S under null hypothesis
-    var_s = (n * (n - 1) * (2 * n + 5)) / 18.0
-    
-    if s > 0:
-        z = (s - 1) / math.sqrt(var_s)
-    elif s < 0:
-        z = (s + 1) / math.sqrt(var_s)
-    else:
-        z = 0.0
-
-    # Two-tailed p-value approximation using complementary error function
-    p_value = 2.0 * (1.0 - 0.5 * (1.0 + math.erf(abs(z) / math.sqrt(2.0))))
-    p_value = max(0.0001, min(1.0, p_value))
-    
-    is_significant = p_value < 0.05
-    return round(float(z), 3), round(float(p_value), 4), is_significant
+    res = compute_mann_kendall(values)
+    return res["z_statistic"], res["p_value"], res["is_significant"]
 
 def generate_coastal_bangladesh_timeseries(
     start_year: int = 2020,
@@ -132,19 +106,13 @@ def run_scientific_analysis(
     # Extreme anomaly: minimum Z-score observed
     min_z = min([p.anomaly_z_score for p in timeseries])
     
-    # Area breakdown in hectares
+    # Area breakdown in hectares via pure science module
     total_area = region["area_ha"]
-    if delta_pct <= -15.0:
-        severe_pct, mod_pct, stable_pct, green_pct = 0.42, 0.33, 0.20, 0.05
-    elif delta_pct <= -5.0:
-        severe_pct, mod_pct, stable_pct, green_pct = 0.15, 0.45, 0.32, 0.08
-    else:
-        severe_pct, mod_pct, stable_pct, green_pct = 0.05, 0.15, 0.65, 0.15
-        
-    severe_ha = round(total_area * severe_pct, 1)
-    mod_ha = round(total_area * mod_pct, 1)
-    stable_ha = round(total_area * stable_pct, 1)
-    green_ha = round(total_area * green_pct, 1)
+    change_info = classify_vegetation_change(baseline_ndvi, target_ndvi, total_area)
+    severe_ha = change_info["breakdown_ha"]["severe_decline_ha"]
+    mod_ha = change_info["breakdown_ha"]["moderate_decline_ha"]
+    stable_ha = change_info["breakdown_ha"]["stable_ha"]
+    green_ha = change_info["breakdown_ha"]["greening_ha"]
     
     geojson = get_coastal_bangladesh_geojson()
     

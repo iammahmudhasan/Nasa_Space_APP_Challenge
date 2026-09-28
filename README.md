@@ -157,23 +157,18 @@ Nasa_Space_APP_Challenge/
 
 ---
 
-## 🌟 5. Quickstart
-
-### Backend Setup:
+### 🔬 1. Test the Standalone Scientific Engine First (No AI / Pure Science):
 ```bash
 cd backend
-python -m venv venv
-venv\Scripts\activate   # On Windows
-pip install -r requirements.txt
-python -m uvicorn app.main:app --reload --port 8000
+python standalone_science_pipeline.py
 ```
+> **Output:** Executes NASA band reading, NDVI computation, Mann-Kendall trend testing, and writes `science_results.json` directly.
 
-### Frontend Setup:
-```bash
-cd frontend
-npm install
-npm run dev
-```
+### 🌐 2. Run the Full Agent & Web System:
+- **Option A (One-Click):** Run `start_servers.bat` (or `./start_servers.ps1`)
+- **Option B (Manual):**
+  - **Backend:** `cd backend && python -m uvicorn app.main:app --reload --port 8000`
+  - **Frontend:** `cd frontend && npm run dev` (Access at `http://localhost:5173`)
 
 ---
 

@@ -1,0 +1,27 @@
+{
+  "dataset": "MODIS/Terra Vegetation Indices 16-Day L3 Global 250m (MOD13Q1.061)",
+  "doi": "10.5067/MODIS/MOD13Q1.061",
+  "region": "Sundarbans Biosphere (Satkhira & West Division, Bangladesh)",
+  "coordinates_bbox": [
+    89.05,
+    21.75,
+    89.45,
+    22.35
+  ],
+  "metrics": {
+    "baseline_mean_ndvi": 0.7760954943632932,
+    "target_mean_ndvi": 0.5709225793188405,
+    "delta_absolute": -0.205,
+    "delta_percentage": -26.4,
+    "mann_kendall_p": 0.0001,
+    "statistically_significant": true,
+    "sen_slope_annual": -0.0199,
+    "extreme_anomaly_z_score": -4.43
+  },
+  "spatial_footprint_ha": {
+    "severe_decline_ha": 131040.0,
+    "moderate_decline_ha": 102960.0,
+    "stable_ha": 62400.0,
+    "greening_ha": 15600.0
+  }
+}

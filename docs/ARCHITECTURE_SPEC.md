@@ -24,6 +24,20 @@ $$\text{Natural Language Inquiry} \xrightarrow{\text{AI Agent Planner}} \text{NA
 2. **Provenance & Auditability:** Every statement is backed by an authoritative NASA Earthdata DOI, sensor ID (MODIS Terra/Aqua, VIIRS SNPP/NOAA-20), platform, and temporal window.
 3. **Reproducibility Recipe:** Every agent execution generates a JSON recipe and an executable Python script enabling any independent researcher to recreate the analysis bit-for-bit.
 
+### 1.4 Foundational Principle: Scientific Engine First, AI Agent Second
+A foundational rule of this architecture is:
+$$\text{If the underlying analysis tool is mathematically flawed, no LLM—regardless of intelligence—can produce a correct result.}$$
+
+Therefore, development and validation strictly follow a two-tier hierarchy:
+```
+STAGE 1: Deterministic Scientific Engine (Pure Python / Standalone)
+   NASA Data -> Python -> Read Data -> Analyze Data -> Result
+
+STAGE 2: Autonomous Agent Abstraction Layer
+   Python Analysis -> Tool Interface -> LLM Orchestration
+```
+The scientific engine is completely decoupled from the LLM, enabling independent unit testing, CLI execution (`standalone_science_pipeline.py`), and peer-reviewed verification.
+
 ---
 
 ## 2. Exact V1 Scope & Boundaries
