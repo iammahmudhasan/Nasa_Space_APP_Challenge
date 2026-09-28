@@ -52,33 +52,38 @@ export default function TimeSeriesChart({ analysis }) {
       <div className="metrics-summary-bar">
         <div className="metric-card">
           <span className="metric-card-title">Baseline Canopy (2020)</span>
-          <span className="metric-card-val" style={{ color: '#fff' }}>
-            {analysis.baseline_mean.toFixed(3)} <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>NDVI</span>
+          <span className="metric-card-val" style={{ color: '#ffffff' }}>
+            {analysis.baseline_mean.toFixed(3)}{' '}
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>NDVI</span>
           </span>
+          <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>Pre-disturbance reference</span>
         </div>
 
         <div className="metric-card">
           <span className="metric-card-title">Terminal Canopy (2025)</span>
           <span className="metric-card-val" style={{ color: isLoss ? 'var(--crimson-severe)' : 'var(--emerald-healthy)' }}>
-            {analysis.target_mean.toFixed(3)} <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>NDVI</span>
+            {analysis.target_mean.toFixed(3)}{' '}
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>NDVI</span>
           </span>
+          <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>Latest satellite composite</span>
         </div>
 
         <div className="metric-card">
           <span className="metric-card-title">Net Environmental Shift</span>
-          <span className="metric-card-val" style={{ color: isLoss ? 'var(--crimson-severe)' : 'var(--emerald-healthy)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span className="metric-card-val" style={{ color: isLoss ? 'var(--crimson-severe)' : 'var(--emerald-healthy)', display: 'flex', alignItems: 'center', gap: '5px' }}>
             {isLoss ? <TrendingDown size={18} /> : <TrendingUp size={18} />}
             {analysis.delta_percentage > 0 ? `+${analysis.delta_percentage}` : analysis.delta_percentage}%
           </span>
+          <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>ΔNDVI Canopy Trajectory</span>
         </div>
 
         <div className="metric-card">
-          <span className="metric-card-title">Mann-Kendall p-value</span>
-          <span className="metric-card-val" style={{ color: analysis.is_statistically_significant ? 'var(--emerald-healthy)' : 'var(--amber-warn)', fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span className="metric-card-title">Mann-Kendall Significance</span>
+          <span className="metric-card-val" style={{ color: analysis.is_statistically_significant ? 'var(--emerald-healthy)' : 'var(--amber-warn)', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
             {analysis.is_statistically_significant ? <CheckCircle size={16} /> : <AlertTriangle size={16} />}
             p = {analysis.mann_kendall_p_value}
           </span>
-          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+          <span style={{ fontSize: '0.66rem', color: analysis.is_statistically_significant ? 'var(--emerald-healthy)' : 'var(--amber-warn)' }}>
             {analysis.is_statistically_significant ? 'Statistically Significant (p < 0.05)' : 'Inconclusive trend'}
           </span>
         </div>

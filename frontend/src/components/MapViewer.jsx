@@ -108,20 +108,21 @@ export default function MapViewer({ geojson, selectedRegionId, onSelectRegion })
       onEachFeature: (feature, l) => {
         const p = feature.properties;
         l.bindPopup(`
-          <div style="font-family: 'Inter', sans-serif; color: #111; font-size: 12px; line-height: 1.5; min-width: 220px;">
-            <div style="font-weight: 700; color: #0284c7; font-size: 13px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-bottom: 6px;">
+          <div style="font-family: 'Inter', sans-serif; color: #f1f5f9; font-size: 12px; line-height: 1.5; min-width: 220px; padding: 2px;">
+            <div style="font-weight: 700; color: #00f0ff; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 5px; margin-bottom: 6px; letter-spacing: -0.01em;">
               ${p.name}
             </div>
-            <div><strong>Ecosystem:</strong> ${p.ecosystem_type}</div>
-            <div><strong>Baseline Canopy (2020):</strong> ${p.baseline_ndvi} NDVI</div>
-            <div><strong>Terminal Canopy (2025):</strong> ${p.target_ndvi} NDVI</div>
-            <div><strong>Relative Shift:</strong> 
-              <span style="color: ${p.percentage_change < 0 ? '#dc2626' : '#16a34a'}; font-weight: 700;">
+            <div style="color: #94a3b8; margin-bottom: 2px;"><strong style="color: #e2e8f0;">Ecosystem:</strong> ${p.ecosystem_type}</div>
+            <div style="color: #94a3b8; margin-bottom: 2px;"><strong style="color: #e2e8f0;">Baseline (2020):</strong> ${p.baseline_ndvi} NDVI</div>
+            <div style="color: #94a3b8; margin-bottom: 2px;"><strong style="color: #e2e8f0;">Terminal (2025):</strong> ${p.target_ndvi} NDVI</div>
+            <div style="margin: 4px 0;">
+              <strong style="color: #e2e8f0;">Environmental Shift:</strong> 
+              <span style="color: ${p.percentage_change < 0 ? '#ff3366' : '#00ff9d'}; font-weight: 700; font-family: monospace;">
                 ${p.percentage_change > 0 ? '+' : ''}${p.percentage_change}%
               </span>
             </div>
-            <div><strong>Status:</strong> ${p.status}</div>
-            <div><strong>Evaluated Area:</strong> ${p.area_ha?.toLocaleString()} hectares</div>
+            <div style="color: #94a3b8; margin-bottom: 2px;"><strong style="color: #e2e8f0;">Classification:</strong> ${p.status}</div>
+            <div style="color: #94a3b8;"><strong style="color: #e2e8f0;">Monitored Area:</strong> ${p.area_ha?.toLocaleString()} hectares</div>
           </div>
         `);
 
@@ -156,81 +157,28 @@ export default function MapViewer({ geojson, selectedRegionId, onSelectRegion })
   return (
     <div className="glass-panel map-wrapper" style={{ position: 'relative' }}>
       {/* Top Left: Basemap Mode Switcher */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '14px',
-          left: '14px',
-          zIndex: 500,
-          background: 'rgba(6, 10, 18, 0.88)',
-          backdropFilter: 'blur(12px)',
-          border: '1px solid var(--border-glass)',
-          borderRadius: '8px',
-          padding: '4px',
-          display: 'flex',
-          gap: '4px'
-        }}
-      >
+      <div className="map-basemap-switcher">
         <button
           onClick={() => setActiveBasemap('satellite')}
-          style={{
-            background: activeBasemap === 'satellite' ? 'rgba(0, 240, 255, 0.25)' : 'transparent',
-            border: activeBasemap === 'satellite' ? '1px solid var(--cyan-core)' : 'none',
-            color: activeBasemap === 'satellite' ? '#ffffff' : 'var(--text-muted)',
-            borderRadius: '6px',
-            padding: '5px 10px',
-            fontSize: '0.74rem',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '5px',
-            fontWeight: 600,
-            transition: 'all 0.2s'
-          }}
+          className={`basemap-btn ${activeBasemap === 'satellite' ? 'active' : ''}`}
         >
-          <Satellite size={13} color={activeBasemap === 'satellite' ? 'var(--cyan-core)' : 'currentColor'} />
+          <Satellite size={13} />
           <span>Satellite</span>
         </button>
 
         <button
           onClick={() => setActiveBasemap('dark')}
-          style={{
-            background: activeBasemap === 'dark' ? 'rgba(0, 240, 255, 0.25)' : 'transparent',
-            border: activeBasemap === 'dark' ? '1px solid var(--cyan-core)' : 'none',
-            color: activeBasemap === 'dark' ? '#ffffff' : 'var(--text-muted)',
-            borderRadius: '6px',
-            padding: '5px 10px',
-            fontSize: '0.74rem',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '5px',
-            fontWeight: 600,
-            transition: 'all 0.2s'
-          }}
+          className={`basemap-btn ${activeBasemap === 'dark' ? 'active' : ''}`}
         >
-          <Moon size={13} color={activeBasemap === 'dark' ? 'var(--cyan-core)' : 'currentColor'} />
+          <Moon size={13} />
           <span>Dark Canvas</span>
         </button>
 
         <button
           onClick={() => setActiveBasemap('osm')}
-          style={{
-            background: activeBasemap === 'osm' ? 'rgba(0, 240, 255, 0.25)' : 'transparent',
-            border: activeBasemap === 'osm' ? '1px solid var(--cyan-core)' : 'none',
-            color: activeBasemap === 'osm' ? '#ffffff' : 'var(--text-muted)',
-            borderRadius: '6px',
-            padding: '5px 10px',
-            fontSize: '0.74rem',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '5px',
-            fontWeight: 600,
-            transition: 'all 0.2s'
-          }}
+          className={`basemap-btn ${activeBasemap === 'osm' ? 'active' : ''}`}
         >
-          <MapIcon size={13} color={activeBasemap === 'osm' ? 'var(--cyan-core)' : 'currentColor'} />
+          <MapIcon size={13} />
           <span>Streets</span>
         </button>
       </div>
@@ -240,27 +188,27 @@ export default function MapViewer({ geojson, selectedRegionId, onSelectRegion })
 
       {/* Floating Legend (Top Right) */}
       <div className="map-floating-overlay">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: '#fff' }}>
-          <Layers size={13} color="var(--cyan-core)" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: '#fff', fontSize: '0.78rem' }}>
+          <Layers size={13} color="var(--cyan-glow)" />
           <span>ΔNDVI Change Spectrum (2020–2025)</span>
         </div>
         <div className="legend-item">
-          <span className="legend-swatch" style={{ background: '#ff3366' }} />
+          <span className="legend-swatch" style={{ background: '#ff3366', boxShadow: '0 0 6px rgba(255, 51, 102, 0.6)' }} />
           <span>Severe Canopy Degradation (&gt; 15% loss)</span>
         </div>
         <div className="legend-item">
-          <span className="legend-swatch" style={{ background: '#ff9900' }} />
+          <span className="legend-swatch" style={{ background: '#ff9900', boxShadow: '0 0 6px rgba(255, 153, 0, 0.6)' }} />
           <span>Moderate Degradation (5% – 15% loss)</span>
         </div>
         <div className="legend-item">
-          <span className="legend-swatch" style={{ background: '#00e5ff' }} />
+          <span className="legend-swatch" style={{ background: '#00e5ff', boxShadow: '0 0 6px rgba(0, 229, 255, 0.6)' }} />
           <span>Stable Ecological Canopy</span>
         </div>
         <div className="legend-item">
-          <span className="legend-swatch" style={{ background: '#00ff9d' }} />
+          <span className="legend-swatch" style={{ background: '#00ff9d', boxShadow: '0 0 6px rgba(0, 255, 157, 0.6)' }} />
           <span>Greening / Mangrove Accretion (&gt; 5%)</span>
         </div>
-        <div style={{ marginTop: '4px', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+        <div style={{ marginTop: '4px', fontSize: '0.68rem', color: 'var(--text-dim)', fontStyle: 'italic' }}>
           *Click any sector polygon to focus telemetry
         </div>
       </div>
