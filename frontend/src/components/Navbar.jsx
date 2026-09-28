@@ -16,7 +16,20 @@ export default function Navbar() {
 
   return (
     <header className="navbar">
-      <div className="nav-brand">
+      <div className="nav-brand" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+        <img
+          src="/Nasa-logo.gif"
+          alt="NASA Meatball Insignia"
+          style={{
+            height: '46px',
+            width: 'auto',
+            objectFit: 'contain',
+            filter: 'drop-shadow(0 0 12px rgba(0, 240, 255, 0.35))',
+            borderRadius: '50%',
+            transition: 'transform 0.3s ease'
+          }}
+          className="hover:scale-105"
+        />
         <span className="nasa-logo-badge">NASA SPACE APPS 2026</span>
         <div>
           <h1 className="nav-title font-display">NASA Earth Intelligence Agent</h1>
