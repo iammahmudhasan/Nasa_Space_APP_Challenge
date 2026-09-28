@@ -41,7 +41,7 @@ export default function Navbar() {
           <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', letterSpacing: '0.02em', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <span>Autonomous Scientific Research Agent</span>
             <span style={{ color: 'var(--border-focus)' }}>•</span>
-            <span>Planetary Environmental Observation & Zero-Hallucination Evidence</span>
+            <span>Deterministic Scientific Analysis & Evidence Grounding</span>
           </p>
         </div>
       </div>
@@ -53,9 +53,9 @@ export default function Navbar() {
           <span className="telemetry-dot" />
         </div>
 
-        <div className="telemetry-chip" title="Deterministic statistical analysis: LLM cannot alter empirical results">
+        <div className="telemetry-chip" title="Deterministic statistical analysis: numerical results are computed strictly in Python, not by LLM">
           <ShieldCheck size={14} color="var(--emerald-healthy)" />
-          <span style={{ color: 'var(--emerald-healthy)' }}>Zero-Hallucination Verified</span>
+          <span style={{ color: 'var(--emerald-healthy)' }}>Deterministic Science Verified</span>
         </div>
 
         <div className="telemetry-chip font-mono">

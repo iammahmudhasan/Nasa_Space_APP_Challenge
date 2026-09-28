@@ -109,7 +109,7 @@ async def execute_agent_pipeline_stream(request: QueryRequest) -> AsyncGenerator
     # Step 3: Satellite Data Ingestion
     t0 = time.time()
     # Ingest time-series & spatial polygons
-    analysis: AnalysisResult = run_scientific_analysis(
+    analysis: AnalysisResult = await run_scientific_analysis(
         region_id=region_id,
         start_year=start_yr,
         end_year=end_yr
@@ -159,7 +159,7 @@ async def execute_agent_pipeline_stream(request: QueryRequest) -> AsyncGenerator
         tool_called="run_scientific_guardrails",
         tool_args={"checks_count": len(guardrails)},
         status="COMPLETED",
-        summary=f"Passed {sum(1 for c in guardrails if c.status == 'PASSED')}/{len(guardrails)} guardrail tests. Zero hallucination certified.",
+        summary=f"Passed {sum(1 for c in guardrails if c.status == 'PASSED')}/{len(guardrails)} guardrail tests. Deterministic computation certified.",
         duration_ms=max(15, duration)
     )
     steps.append(step5)

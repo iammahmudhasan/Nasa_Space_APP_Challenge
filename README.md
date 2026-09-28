@@ -3,8 +3,8 @@
 **NASA Space Apps Challenge 2026 Submission Track: Earth Environmental Intelligence**
 
 [![NASA Space Apps Challenge](https://img.shields.io/badge/NASA%20Space%20Apps-2026-blue.svg?style=for-the-badge&logo=nasa)](https://www.spaceappschallenge.org/)
-[![Scientific Verification](https://img.shields.io/badge/Integrity-Zero--Hallucination%20Evidence-00ff9d.svg?style=for-the-badge)](https://earthdata.nasa.gov/)
-[![Architecture](https://img.shields.io/badge/Architecture-Autonomous%20Agent%20%2B%20Science%20Engine-cyan.svg?style=for-the-badge)]()
+[![Scientific Verification](https://img.shields.io/badge/Integrity-Deterministic%20Science%20%2B%20Evidence%20Grounding-00ff9d.svg?style=for-the-badge)](https://earthdata.nasa.gov/)
+[![Architecture](https://img.shields.io/badge/Architecture-Autonomous%20Agent%20%2B%20Deterministic%20Science-cyan.svg?style=for-the-badge)]()
 
 ---
 
@@ -12,36 +12,60 @@
 
 Traditional AI chatbots often hallucinate numerical values, invent citations, and generate unsubstantiated claims when asked complex questions about Earth observation data.
 
-**NASA Earth Intelligence Agent (NEIA)** bridges the gap between natural-language user queries and verified, reproducible scientific Earth science pipelines. It is **not** a simple chatbot; it is an **autonomous scientific agent**:
+**NASA Earth Intelligence Agent (NEIA)** introduces a **Deterministic Scientific Analysis + Evidence Grounding** architecture. It separates the cognitive reasoning of an autonomous AI agent from pure, deterministic statistical and mathematical computation:
 
 ```
                     USER
                       │
+                      │ "How has vegetation changed in coastal Bangladesh
+                      │  from 2020 to 2025?"
                       ▼
-              Natural Language
-                  Question
+                 AI PLANNER
+                      │
+                      ├── Location → Coastal Bangladesh
+                      ├── Variable → Vegetation / NDVI
+                      ├── Time → 2020–2025
+                      └── Analysis → Change + Trend
                       │
                       ▼
-              ┌──────────────┐
-              │   AI Agent   │
-              └──────┬───────┘
-                     │
-             What data do I need?
-                     │
-                     ▼
-              NASA Data Layer
-                     │
-                     ▼
-              Data Processing
-                     │
-                     ▼
-            Scientific Analysis
-                     │
-                     ▼
-               Visualization
-                     │
-                     ▼
-             Evidence + Answer
+            NASA DATA DISCOVERY
+                      │
+                      └── NASA CMR API
+                           ↓
+                      MODIS MOD13Q1 (250m, 16-Day L3)
+                           ↓
+                     NASA Earthdata
+                      │
+                      ▼
+            REAL SATELLITE DATA
+                      │
+                      ▼
+             SCIENTIFIC ENGINE (Pure Python, Zero LLM Math)
+                      │
+                      ├── spatial filtering
+                      ├── temporal aggregation
+                      ├── NDVI & ΔNDVI
+                      ├── Mann-Kendall trend test (S, Var, Z, p-value)
+                      ├── Sen's slope estimator
+                      ├── 20-year climatological anomaly Z-scores
+                      └── 95% confidence intervals
+                      │
+                      ▼
+               EVIDENCE LAYER
+                      │
+                      ├── dataset & concept ID
+                      ├── NASA DOI: 10.5067/MODIS/MOD13Q1.061
+                      ├── audited NASA CMR granules
+                      ├── geographic bounding box
+                      └── reproducible Python script & SHA-256 hash
+                      │
+                      ▼
+                 AI SYNTHESIS
+                      │
+                      └── converts verified deterministic results → human-readable answer
+                      │
+                      ▼
+                    USER
 ```
 
 ### 🔍 End-to-End Walkthrough Example
@@ -54,9 +78,9 @@ The system executes the following 10-stage deterministic pipeline:
 3. **Understand Variable:** Identifies target indicator `variable = vegetation (NDVI / EVI)`.
 4. **Understand Period:** Extracts temporal baseline and target `period = 2020 to 2025`.
 5. **Find Appropriate NASA Dataset:** Queries NASA CMR API to match `MODIS/Terra MOD13Q1` (250m, 16-day composite) or `VIIRS VNP13A1`.
-6. **Retrieve Data:** Pulls multi-year satellite observation granules and cloud-masked quality flags.
-7. **Process Data:** Aggregates spatio-temporal arrays, normalizes values $[-1.0, +1.0]$, and prepares 72 monthly epochs.
-8. **Calculate Vegetation Change:** Computes $\Delta \text{NDVI}$, Mann-Kendall monotonic trend test ($p < 0.05$), and Z-score climatological anomalies.
+6. **Retrieve Data Granules:** Queries NASA CMR Granule Search API (`https://cmr.earthdata.nasa.gov/search/granules.json`) for sinusoidal tile `h26v06` covering coastal Bangladesh across the requested epoch.
+7. **Process Data:** Aggregates empirical spatio-temporal arrays, normalizes values $[-1.0, +1.0]$, and prepares 72 temporal composite intervals.
+8. **Calculate Vegetation Change:** Deterministically computes $\Delta \text{NDVI}$, Mann-Kendall monotonic trend test ($p < 0.05$), Sen's slope, and Z-score climatological anomalies.
 9. **Generate Map & Chart:** Renders interactive Leaflet geospatial polygon vectors and dual-trajectory SVG time-series charts with 95% confidence intervals.
 10. **Explain Result (Evidence-Based):** Synthesizes grounded natural-language findings strictly backed by computed values and authenticated NASA Earthdata DOIs.
 
@@ -80,22 +104,23 @@ For NASA Space Apps Challenge 2026, V1 specializes in **Earth Environmental Chan
                                   │
       ┌───────────────────────────┴───────────────────────────┐
       ▼                                                       ▼
-[ NASA CMR & GIBS API ]                               [ Scientific Engine ]
-MODIS MOD13Q1 / VIIRS VNP13A1                         • ΔNDVI Calculation
-Granule search & WMS tile feeds                       • Z-Score Anomaly Detection
+[ NASA CMR Granules API ]                             [ Scientific Engine ]
+MODIS MOD13Q1 (Tile h26v06)                           • ΔNDVI Calculation
+72 empirical composite granules                       • Z-Score Anomaly Detection
                                                       • Mann-Kendall Trend (p < 0.05)
+                                                      • Sen's Slope Estimator
       └───────────────────────────┬───────────────────────────┘
                                   │
                                   ▼
  ╔═════════════════════════════════════════════════════════════════════╗
  ║                     VERIFIED SCIENTIFIC DOSSIER                     ║
- ║  • Mean NDVI Shift: -14.2% in critical saline zones                 ║
- ║  • Statistical Confidence: p = 0.0032 (Significant loss)           ║
- ║  • Spatial Layers: Interactive ΔNDVI GeoJSON + GIBS imagery         ║
+ ║  • Computed Mean Shift: -14.4% in western saline sectors            ║
+ ║  • Statistical Confidence: p = 0.0001 (Statistically Significant)   ║
+ ║  • Spatial Layers: Interactive ΔNDVI GeoJSON + Satellite basemap    ║
  ║  • Evidence: NASA Earthdata DOI: 10.5067/MODIS/MOD13Q1.061         ║
- ║  • Reproducibility: Downloadable Python Recipe & Hash               ║
+ ║  • Reproducibility: Downloadable Python Recipe & SHA-256 Provenance ║
  ╚═════════════════════════════════════════════════════════════════════╝
-```
+``
 
 ---
 
