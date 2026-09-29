@@ -157,7 +157,7 @@ STATISTICAL FINDINGS:
   - Mann-Kendall p-value:  {mk_res['p_value']:.4e} (Z = {mk_res['z_score']:+.2f})
 --------------------------------------------------------------------------------
 VERDICT:
-  - Statistically Significant (alpha = 0.05): {'YES [Real Physical Trend]' if (ols_res['is_significant'] or mk_res['is_significant']) else 'NO [Statistical Illusion / Noise]'}
+  - Statistically Significant (alpha = 0.05): {'YES (p < 0.05)' if (ols_res['is_significant'] or mk_res['is_significant']) else 'NO (p >= 0.05, Not Significant)'}
 ================================================================================
 """
     return summary

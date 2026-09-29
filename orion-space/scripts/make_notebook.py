@@ -204,7 +204,7 @@ notebook = {
                 "4. **OLS p-value:** Null hypothesis test ($H_0: \\text{slope} = 0$)\n",
                 "5. **Mann-Kendall Trend Test ($S, Z, p$):** Non-parametric rank-based test robust against non-normality\n",
                 "6. **Sen's Slope Estimator:** Median of all pairwise slopes, impervious to extreme climate anomalies\n",
-                "7. **Verdict:** Is $p < 0.05$ (Statistically Significant) or is it a \"Statistical Illusion\"?"
+                "7. **Verdict:** Is $p < 0.05$ (Statistically Significant at $\\alpha = 0.05$)?"
             ]
         },
         {
@@ -265,7 +265,7 @@ notebook = {
                 "print(f\"Linear Regression p-value:   {p_val_ols:.4f}\")\n",
                 "print(f\"Mann-Kendall p-value:        {p_val_mk:.4f} (Z = {z_mk:+.2f})\")\n",
                 "print(\"-\" * 75)\n",
-                "sig_verdict = \"YES (Statistically Significant)\" if (p_val_ols < 0.05 or p_val_mk < 0.05) else \"NO (Statistical Illusion / Not Significant at α=0.05)\"\n",
+                "sig_verdict = \"YES (Statistically Significant, p < 0.05)\" if (p_val_ols < 0.05 or p_val_mk < 0.05) else \"NO (Not Significant at α=0.05)\"\n",
                 "print(f\"Statistically Significant:   {sig_verdict}\")\n",
                 "print(\"=\" * 75)"
             ]
@@ -327,14 +327,14 @@ notebook = {
                 "\n",
                 "# Diagnostic Text Box\n",
                 "textbox_content = (\n",
-                "    f\"DETECTIVE VERDICT:\\n\"\n",
+                "    f\"STATISTICAL SUMMARY:\\n\"\n",
                 "    f\"-----------------------------\\n\"\n",
                 "    f\"Slope (OLS):   {slope_ols:+.4f} °C/yr\\n\"\n",
                 "    f\"Total Change:  {total_change_ols:+.2f} °C\\n\"\n",
                 "    f\"OLS p-value:   {p_val_ols:.3f}\\n\"\n",
                 "    f\"M-K p-value:   {p_val_mk:.3f}\\n\"\n",
-                "    f\"Significance:  Not Sig. (p > 0.05)\\n\"\n",
-                "    f\"Classification: Annual Mean Buffer\"\n",
+                "    f\"Significance:  Not Sig. (p >= 0.05)\\n\"\n",
+                "    f\"Classification: High Inter-Annual Variance\"\n",
                 ")\n",
                 "plt.text(0.02, 0.95, textbox_content, transform=plt.gca().transAxes, fontsize=10,\n",
                 "         verticalalignment='top', bbox=dict(boxstyle='round,pad=0.6', facecolor='#f8f9fa', edgecolor='#adb5bd', alpha=0.9))\n",
@@ -350,15 +350,15 @@ notebook = {
             "metadata": {},
             "source": [
                 "---\n",
-                "## Step G — The Detective's Deeper Climatological Discovery: Why is Annual Mean Not Significant?\n",
+                "## Step G — Intra-Annual Examination: Deconstructing Trends by Month\n",
                 "\n",
-                "### The Detective's Paradox:\n",
-                "Why is the overall annual mean warming (+0.06°C over 25 years) yielding $p = 0.757$ (not statistically significant), despite widespread reports of extreme heat events in Bangladesh?\n",
+                "### Climatological Rationale:\n",
+                "While the multi-decadal annual mean yields $p = 0.757$ (not statistically significant at $\\alpha = 0.05$), aggregate yearly averages can conceal contrasting intra-annual variations.\n",
                 "\n",
-                "Let us test the **Seasonal Deconstruction Hypothesis**:\n",
+                "Let us test the **Seasonal Deconstruction Approach**:\n",
                 "In Bangladesh's subtropical monsoon climate:\n",
-                "1. **Monsoon Buffering:** Heavy monsoon rains and cloud cover during June–September keep summer peak temperatures suppressed.\n",
-                "2. **Winter & Pre-Monsoon Divergence:** Are specific months (e.g., April heatwaves or Winter minimums) warming with high statistical significance while being masked by the annual average?\n",
+                "1. **Pre-monsoon and Monsoon Dynamics:** Early seasonal variability may exhibit different trends compared to post-monsoon months.\n",
+                "2. **Monthly Breakdown:** We calculate individual OLS slopes and p-values for each calendar month across 2001–2025 to determine if specific months show statistically significant shifts.\n",
                 "\n",
                 "Let us inspect the trend for each month separately."
             ]

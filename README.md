@@ -14,23 +14,23 @@
 ---
 
 ## 🎯 The Detective's Question
-> *"How has surface air temperature changed over Bangladesh over the long term, and is the observed trend a scientifically proven reality or a statistical illusion?"*
+> *"How has surface air temperature changed over Bangladesh over the long term, and are the observed trends statistically significant under formal hypothesis testing?"*
 
 ---
 
-## 🚀 Key Phase 1 Discoveries (Dhaka Baseline)
+## 🚀 Key Phase 1 Findings (Dhaka Baseline)
 
-1. **The Annual Illusion:**
+1. **Annual Aggregated Analysis:**
    - 25-Year Annual Mean Slope: **`+0.0026 °C / year`** (`+0.026 °C / decade`)
    - Ordinary Least Squares $p$-value: **`0.7571`** (Mann-Kendall: **`0.6913`**)
-   - **Verdict:** On an annual aggregated basis, the trend is **NOT statistically significant** ($\alpha = 0.05$). This illustrates why rigorous significance testing is critical to avoid false assumptions.
+   - **Verdict:** On an annual aggregated basis, the trend is **not statistically significant** ($\alpha = 0.05$). This illustrates why formal statistical testing is essential to distinguish systematic shifts from background inter-annual variance.
 
-2. **The Seasonal Deconstruction Breakthrough:**
-   - When decomposing the daily data into monthly climate intervals, we uncover severe, hidden warming:
-   - **July (Monsoon):** **`+0.167 °C/decade`** ($p = 0.0207$) — **Statistically Significant ✅**
-   - **September (Late Monsoon):** **`+0.361 °C/decade`** ($p < 0.0001$) — **Extremely Statistically Significant ✅**
-   - **October (Post-Monsoon):** **`+0.452 °C/decade`** ($p = 0.0062$) — **Highly Statistically Significant ✅ (+1.13°C Total Change)**
-   - **Conclusion:** Late-season heatwaves have intensified dramatically over Bangladesh, while earlier seasonal fluctuations historically masked this signal in simple annual averages.
+2. **Seasonal Deconstruction Findings:**
+   - When decomposing the 25-year daily record into monthly averages, distinct seasonal differences emerge:
+   - **July:** **`+0.167 °C/decade`** ($p = 0.0207$) — **Statistically Significant ✅ ($p < 0.05$)**
+   - **September:** **`+0.361 °C/decade`** ($p < 0.0001$) — **Statistically Significant ✅ ($p < 0.001$)**
+   - **October:** **`+0.452 °C/decade`** ($p = 0.0062$) — **Statistically Significant ✅ ($p < 0.01$, +1.13°C Total Shift)**
+   - **Conclusion:** Statistically significant warming is observed specifically in late-monsoon and post-monsoon months (July, September, October), whereas other months exhibit no statistically significant long-term trend, moderating the annual average.
 
 ---
 

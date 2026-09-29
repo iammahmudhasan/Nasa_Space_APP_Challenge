@@ -15,7 +15,7 @@ The NASA challenge charges us with answering four fundamental scientific questio
 1. **What is changing?** (Surface Air Temperature at 2m, `T2M`)
 2. **Where is it changing?** (Dhaka, Bangladesh: 23.8103°N, 90.4125°E — Phase 1 Point Analysis)
 3. **By how much is it changing?** (Rate of change in °C/year, °C/decade, and total 25-year cumulative change)
-4. **Is the change Statistically Significant or a Statistical Illusion?** (Validated via Parametric OLS Regression and Non-Parametric Mann-Kendall Trend Test with Sen's Slope Estimator)
+4. **Is the change Statistically Significant?** (Tested via Parametric OLS Regression and Non-Parametric Mann-Kendall Trend Test with Sen's Slope Estimator)
 
 ---
 
@@ -26,7 +26,9 @@ orion-space/
 │
 ├── data/
 │   ├── dhaka_t2m_2001_2025.csv          <- 9,131 daily observations cached from NASA POWER
-│   └── dhaka_t2m_trend_analysis.png     <- High-resolution scientific publication figure
+│   ├── dhaka_t2m_trend_analysis.png     <- High-resolution scientific publication figure
+│   ├── bangladesh_t2m_regional_raw.json <- 104-point regional raw cache from NASA POWER
+│   └── bangladesh_t2m_spatial_trends.csv <- 104-point spatial trend statistics table
 │
 ├── notebooks/
 │   └── 01_nasa_temperature_analysis.ipynb <- Executable Jupyter Notebook (A-F Steps)
@@ -38,7 +40,8 @@ orion-space/
 ├── src/
 │   ├── __init__.py
 │   ├── data_loader.py                   <- NASA POWER API ingestion & data cleaning
-│   └── trend_analysis.py                <- OLS, Mann-Kendall, Sen's Slope & reporting
+│   ├── trend_analysis.py                <- OLS, Mann-Kendall, Sen's Slope & reporting
+│   └── spatial_analysis.py              <- Regional grid generation & spatial trend pipeline
 │
 ├── requirements.txt                     <- Pinned scientific dependencies
 └── README.md                            <- Scientific documentation & methodology
@@ -59,15 +62,15 @@ orion-space/
 | **Model Fit ($R^2$)** | `0.0042` | — |
 | **Test Statistic** | $t = 0.313$ | $S = +30, Z = +0.40$ |
 | **p-value** | **`p = 0.7571`** | **`p = 0.6913`** |
-| **Statistical Significance ($\alpha=0.05$)** | **NO (Statistical Illusion / Noise)** | **NO (Statistical Illusion / Noise)** |
+| **Statistical Significance ($\alpha=0.05$)** | **Not Significant ($p \ge 0.05$)** | **Not Significant ($p \ge 0.05$)** |
 
-> **Detective Insight #1:** If an analyst only looked at the annual mean, they would conclude there is no significant warming in Dhaka over the last 25 years. But this is where true Earth System Detectives investigate deeper!
+> **Scientific Observation:** On an annual aggregate scale, inter-annual temperature variance dominates, and the 25-year trend does not meet the threshold of statistical significance ($\alpha = 0.05$).
 
 ---
 
-### 2. The Detective's Breakthrough: Seasonal Deconstruction
+### 2. Seasonal Deconstruction Analysis
 
-When the daily time series is decomposed into monthly climate segments, the annual masking effect disappears, revealing **severe, statistically significant late-monsoon and post-monsoon warming**:
+When decomposing the daily time series into monthly subsets, distinct intra-annual signals are observed:
 
 | Month | Decadal Rate (°C/decade) | 25-Year Total Change (°C) | p-value | Statistically Significant? |
 | :--- | :---: | :---: | :---: | :---: |
@@ -84,9 +87,9 @@ When the daily time series is decomposed into monthly climate segments, the annu
 | **November** | $+0.195$ | $+0.49$ | $0.3347$ | No |
 | **December** | $+0.016$ | $+0.04$ | $0.9504$ | No |
 
-### 🎯 Climatological Conclusion:
-1. **The Annual Buffer:** Mild cooling in early months (Feb–May) mathematically cancelled out sharp warming in late months, producing an deceptively flat annual average ($p = 0.757$).
-2. **The Real Crisis:** Post-monsoon months (September & October) have warmed by **$+0.90^\circ\text{C}$ to $+1.13^\circ\text{C}$** with extreme statistical significance ($p < 0.01$), indicating extended summer/monsoon heat duration and delayed winter onset over central Bangladesh.
+### 🎯 Climatological Interpretation:
+1. **Annual Averaging Effect:** Neutral to slight negative slopes in February–May offset positive shifts in late months, dampening the annual average slope ($p = 0.757$).
+2. **Post-Monsoon Warming:** Statistically significant positive temperature trends are concentrated in July ($+0.167^\circ\text{C}$/dec, $p=0.021$), September ($+0.361^\circ\text{C}$/dec, $p<0.001$), and October ($+0.452^\circ\text{C}$/dec, $p=0.006$), representing a total increase of $+0.90^\circ\text{C}$ to $+1.13^\circ\text{C}$ across the 2001–2025 observation window. Specific extreme event indices (such as TX90p or heat wave duration) would require separate tailored extreme indices calculation.
 
 ---
 
