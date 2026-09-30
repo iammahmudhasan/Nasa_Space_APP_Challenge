@@ -1,94 +1,63 @@
 import React from 'react';
-import { MapPin, Activity, CheckCircle2, ShieldCheck, AlertCircle, Sparkles } from 'lucide-react';
+import { Check, MapPin } from 'lucide-react';
 
-export default function CellInspector({ selectedCell, variable = 'T2M', unit = '°C/decade' }) {
+function formatProbability(value) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
+  return value < 0.001 ? value.toExponential(2) : value.toFixed(3);
+}
+
+export default function CellInspector({ selectedCell, variable = 'T2M', unit = '°C/decade', testType = 'OLS' }) {
   if (!selectedCell) {
     return (
-      <div className="glass-panel inspector-card" style={{ opacity: 0.85 }}>
-        <div className="card-title">
-          <span>Grid Cell Inspector</span>
-          <MapPin size={14} style={{ color: 'var(--cyan)' }} />
-        </div>
-        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', padding: '16px 0' }}>
-          Click on any grid cell on the map or select a division to inspect 25-year statistical parameters.
-        </p>
-      </div>
+      <section className="inspector-panel empty" aria-labelledby="inspector-title">
+        <div className="inspector-empty-mark"><MapPin size={18} aria-hidden="true" /></div>
+        <div><h3 id="inspector-title">Choose a location</h3><p>Select a point on the map to see the local trend and its evidence.</p></div>
+      </section>
     );
   }
 
-  const lat = selectedCell.latitude;
-  const lon = selectedCell.longitude;
-  const divName = selectedCell.division ?? selectedCell.nearest_division ?? 'Bangladesh';
-  const slope = selectedCell.slope ?? selectedCell.slope_per_decade ?? 0;
-  const senSlope = selectedCell.sen_slope ?? selectedCell.sen_slope_per_decade ?? (slope * 0.965);
-  const qOls = selectedCell.q_ols ?? selectedCell.q_value_ols ?? 0.000121;
-  const pOls = selectedCell.p_ols ?? selectedCell.p_value_ols ?? 0.000057;
-  const qMk = selectedCell.q_mk ?? selectedCell.q_value_mk ?? 0.000292;
-  const pMk = selectedCell.p_mk ?? selectedCell.p_value_mk ?? 0.000078;
-  const isSig = selectedCell.is_sig ?? selectedCell.is_significant_ols_fdr ?? true;
-
-  const isPeak = (lat === 24.5 && lon === 91.875);
+  const latitude = selectedCell.latitude;
+  const longitude = selectedCell.longitude;
+  const division = selectedCell.division ?? selectedCell.nearest_division ?? 'Bangladesh';
+  const olsSlope = selectedCell.slope_per_decade ?? selectedCell.slope;
+  const senSlope = selectedCell.sen_slope ?? selectedCell.sen_slope_per_decade;
+  const qOls = selectedCell.q_ols ?? selectedCell.q_value_ols;
+  const pOls = selectedCell.p_ols ?? selectedCell.p_value_ols;
+  const qMk = selectedCell.q_mk ?? selectedCell.q_value_mk;
+  const pMk = selectedCell.p_mk ?? selectedCell.p_value_mk;
+  const isSignificant = testType === 'Mann-Kendall'
+    ? (selectedCell.is_significant_mk_fdr ?? selectedCell.is_sig)
+    : (selectedCell.is_significant_ols_fdr ?? selectedCell.is_sig);
+  const currentSlope = testType === 'Mann-Kendall' ? (senSlope ?? olsSlope) : olsSlope;
+  const formattedCurrentSlope = Number.isFinite(currentSlope) ? `${currentSlope > 0 ? '+' : ''}${currentSlope.toFixed(4)}` : '—';
 
   return (
-    <div className="glass-panel inspector-card">
-      <div className="card-title">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <MapPin size={16} style={{ color: 'var(--cyan)' }} />
-          <span>{divName} Cell Inspection</span>
-        </div>
-        {isPeak && <span className="badge badge-gold">★ National Peak</span>}
-      </div>
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(8,12,24,0.6)', padding: '10px 12px', borderRadius: 'var(--radius-sm)' }}>
-        <div>
-          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Coordinates</span>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem', color: 'var(--text-main)' }}>
-            {lat}°N, {lon}°E
-          </div>
-        </div>
-        <span className={`badge ${isSig ? 'badge-emerald' : 'badge-crimson'}`}>
-          {isSig ? '✓ BH-FDR Sig' : 'Not Sig'}
+    <section className="inspector-panel" aria-labelledby="inspector-title">
+      <div className="inspector-heading">
+        <div><span className="inspector-location">{division}</span><h3 id="inspector-title">Local result</h3></div>
+        <span className={`significance-status ${isSignificant ? 'is-significant' : 'is-not-significant'}`}>
+          {isSignificant ? <Check size={13} aria-hidden="true" /> : null}
+          {isSignificant ? 'Significant' : 'Not significant'}
         </span>
       </div>
 
-      <div className="inspector-grid">
-        <div className="inspector-metric">
-          <span className="metric-caption">25-Yr OLS Slope</span>
-          <span className="metric-num" style={{ color: slope > 0 ? '#ff7700' : '#00e5ff' }}>
-            {slope > 0 ? `+${slope.toFixed(4)}` : slope.toFixed(4)}
-          </span>
-          <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{unit}</span>
-        </div>
-
-        <div className="inspector-metric">
-          <span className="metric-caption">Sen's Median Slope</span>
-          <span className="metric-num" style={{ color: 'var(--gold)' }}>
-            {senSlope > 0 ? `+${senSlope.toFixed(4)}` : senSlope.toFixed(4)}
-          </span>
-          <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Robust slope</span>
-        </div>
-
-        <div className="inspector-metric">
-          <span className="metric-caption">OLS q-value (FDR)</span>
-          <span className="metric-num">
-            {typeof qOls === 'number' && qOls < 0.001 ? qOls.toExponential(3) : qOls}
-          </span>
-          <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Raw p: {typeof pOls === 'number' && pOls < 0.001 ? pOls.toExponential(3) : pOls}</span>
-        </div>
-
-        <div className="inspector-metric">
-          <span className="metric-caption">Mann-Kendall q (FDR)</span>
-          <span className="metric-num">
-            {typeof qMk === 'number' && qMk < 0.001 ? qMk.toExponential(3) : qMk}
-          </span>
-          <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Raw p: {typeof pMk === 'number' && pMk < 0.001 ? pMk.toExponential(3) : pMk}</span>
-        </div>
+      <p className="cell-coordinates"><MapPin size={14} aria-hidden="true" />{latitude.toFixed(3)}° N, {longitude.toFixed(3)}° E</p>
+      <div className="local-result">
+        <strong className={currentSlope >= 0 ? 'trend-rising' : 'trend-falling'}>{formattedCurrentSlope}</strong>
+        <span>{unit} over 2001–2025</span>
       </div>
+      <p className="cell-variable-note">{({ T2M: "Air temperature", PRECTOTCORR: "Rainfall", GWETTOP: "Soil moisture", ALLSKY_SFC_SW_DWN: "Sunlight" }[variable] || variable)} · {testType === 'Mann-Kendall' ? 'robust Sen’s slope' : 'linear trend'}</p>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.72rem', color: 'var(--text-secondary)', background: 'rgba(0, 229, 255, 0.05)', padding: '8px', borderRadius: 'var(--radius-sm)' }}>
-        <ShieldCheck size={14} style={{ color: 'var(--cyan)', flexShrink: 0 }} />
-        <span>Verified against Benjamini-Hochberg (1995) FDR testing family (m=34).</span>
-      </div>
-    </div>
+      <details className="metric-details">
+        <summary>Statistical details</summary>
+        <dl className="inspector-metrics">
+          <div><dt>Linear trend (OLS)</dt><dd>{Number.isFinite(olsSlope) ? `${olsSlope > 0 ? '+' : ''}${olsSlope.toFixed(4)}` : '—'}<small>{unit}</small></dd></div>
+          <div><dt>Robust trend (Sen’s slope)</dt><dd>{Number.isFinite(senSlope) ? `${senSlope > 0 ? '+' : ''}${senSlope.toFixed(4)}` : '—'}<small>{unit}</small></dd></div>
+          <div><dt>Corrected probability (OLS)</dt><dd>{formatProbability(qOls)}<small>Uncorrected: {formatProbability(pOls)}</small></dd></div>
+          <div><dt>Corrected probability (Mann–Kendall)</dt><dd>{formatProbability(qMk)}<small>Uncorrected: {formatProbability(pMk)}</small></dd></div>
+        </dl>
+        <p className="cell-method-note">Significance uses Benjamini–Hochberg correction across the 34 mapped cells for this month and measure.</p>
+      </details>
+    </section>
   );
 }

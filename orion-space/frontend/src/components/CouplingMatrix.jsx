@@ -1,149 +1,132 @@
-import React, { useState } from 'react';
-import { GitFork, Activity, ArrowRight, ShieldCheck, Info } from 'lucide-react';
-import { CANONICAL_RELATIONSHIPS } from '../services/api';
+import React, { useEffect, useState } from 'react';
+import { GitFork, ShieldCheck } from 'lucide-react';
+import { CANONICAL_RELATIONSHIPS, getRelationshipSamples, summarizeRelationshipSamples } from '../services/api';
 
-export default function CouplingMatrix() {
+const VARIABLE_LABELS = {
+  T2M: 'Air temperature',
+  PRECTOTCORR: 'Precipitation',
+  GWETTOP: 'Soil wetness',
+  ALLSKY_SFC_SW_DWN: 'Solar energy',
+};
+
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const EMPTY_RELATIONSHIPS = () => CANONICAL_RELATIONSHIPS.map(() => []);
+
+function signed(value, digits = 3) {
+  if (value == null || !Number.isFinite(value)) return '—';
+  return `${value > 0 ? '+' : ''}${value.toFixed(digits)}`;
+}
+
+export default function CouplingMatrix({ month = 9, division = 'All Bangladesh', sigFilter = 'fdr', selectedPair = null }) {
   const [selectedPairIndex, setSelectedPairIndex] = useState(0);
+  const [allPairSamples, setAllPairSamples] = useState(EMPTY_RELATIONSHIPS);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const activePair = CANONICAL_RELATIONSHIPS[selectedPairIndex];
 
-  // Generate synthetic distribution matching canonical Pearson r for the 34 cells
-  const r = activePair.pearson_r;
-  const scatterPoints = Array.from({ length: 34 }, (_, i) => {
-    const x = ((i - 17) / 17);
-    const noise = Math.sin(i * 3.7) * (1 - Math.abs(r)) * 0.45;
-    const y = r * x + noise;
-    return {
-      x: 180 + x * 130,
-      y: 130 - y * 90,
-      id: i + 1,
-    };
-  });
+  useEffect(() => {
+    if (!selectedPair) return;
+    const matchingIndex = CANONICAL_RELATIONSHIPS.findIndex((relation) => relation.pair === selectedPair);
+    if (matchingIndex >= 0) setSelectedPairIndex(matchingIndex);
+  }, [selectedPair]);
+
+  useEffect(() => {
+    let isCurrent = true;
+    setIsLoading(true);
+    setLoadError(false);
+    Promise.all(CANONICAL_RELATIONSHIPS.map((relation) => getRelationshipSamples(relation.pair, month, division)))
+      .then((samples) => {
+        if (isCurrent) setAllPairSamples(samples);
+      })
+      .catch(() => { if (isCurrent) setLoadError(true); })
+      .finally(() => { if (isCurrent) setIsLoading(false); });
+    return () => { isCurrent = false; };
+  }, [month, division]);
+
+  const summaries = allPairSamples.map((pairSamples) => summarizeRelationshipSamples(pairSamples, sigFilter));
+  const samples = allPairSamples[selectedPairIndex];
+  const activeSummary = summaries[selectedPairIndex];
+  const plotSamples = sigFilter === 'fdr'
+    ? samples.filter((sample) => sample.pearsonSignificant)
+    : sigFilter === 'raw'
+      ? samples.filter((sample) => sample.pearsonRawSignificant)
+      : samples;
+  const axis = { left: 38, right: 388, top: 22, bottom: 171 };
+  const xPosition = (index) => axis.left + (plotSamples.length <= 1 ? 0.5 : index / (plotSamples.length - 1)) * (axis.right - axis.left);
+  const yPosition = (value) => axis.top + ((1 - value) / 2) * (axis.bottom - axis.top);
 
   return (
     <div className="visualizer-container matrix-container">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div className="coupling-heading-row">
         <div>
-          <h3 style={{ color: 'var(--cyan)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <GitFork size={20} />
-            <span>Earth-System Multi-Variable Coupling (6 Pairs, m=34 FDR Corrected)</span>
-          </h3>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-            Investigating statistical feedbacks between temperature, hydrology, soil moisture, and radiative energy.
-          </p>
+          <h3><GitFork size={17} /> Cross-variable relationships</h3>
+          <p>Cell-by-cell correlation across the 2001–2025 monthly climate records.</p>
         </div>
-
-        <span className="badge badge-cyan">
-          <ShieldCheck size={14} />
-          <span>No Causal Leaps Claimed</span>
-        </span>
+        <span className="badge badge-emerald"><ShieldCheck size={13} /> Association ≠ causation</span>
       </div>
 
-      {/* 6-Pair Relationship Grid */}
-      <div className="matrix-grid">
-        {CANONICAL_RELATIONSHIPS.map((rel, idx) => {
-          const isSelected = idx === selectedPairIndex;
-          const isPos = rel.pearson_r > 0;
+      <div className="matrix-grid" role="group" aria-label="Choose a climate variable pair">
+        {CANONICAL_RELATIONSHIPS.map((relation, index) => {
+          const summary = summaries[index];
+          const isSelected = index === selectedPairIndex;
           return (
-            <div
-              key={rel.pair}
+            <button
+              type="button"
+              key={relation.pair}
               className={`matrix-cell ${isSelected ? 'selected' : ''}`}
-              onClick={() => setSelectedPairIndex(idx)}
+              onClick={() => setSelectedPairIndex(index)}
+              aria-pressed={isSelected}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-main)' }}>
-                  {rel.pair}
-                </span>
-                <span className={`badge ${isPos ? 'badge-emerald' : 'badge-crimson'}`} style={{ padding: '2px 6px', fontSize: '0.7rem' }}>
-                  {isPos ? `+${rel.pearson_r}` : rel.pearson_r}
-                </span>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                <span>Spearman ρ: {rel.spearman_rho}</span>
-                <span style={{ color: 'var(--gold)' }}>{rel.co_occurrence}</span>
-              </div>
-
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '6px' }}>
-                {rel.fdr_sig_cells} / {rel.total_cells} Cells Significant (q &lt; 0.05)
-              </div>
-            </div>
+              <span className="matrix-pair-label">{relation.pair}</span>
+              <span className="matrix-pair-metrics"><b>{signed(summary?.pearsonR)}</b><span>Pearson r</span><b>{signed(summary?.spearmanRho)}</b><span>Spearman ρ</span></span>
+              <span className="matrix-significance">{summary ? sigFilter === 'all' ? `${summary.total} grid cells · all shown` : `${summary.pearsonSignificant} / ${summary.total} cells ${sigFilter === 'fdr' ? 'FDR' : 'nominal'} significant` : 'No records for this selection'}</span>
+            </button>
           );
         })}
       </div>
 
-      {/* Deep-Dive Scatter Visualization Panel */}
-      <div className="glass-panel" style={{ padding: '20px', display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '20px', alignItems: 'center' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <span style={{ fontWeight: 600, color: 'var(--cyan)', fontSize: '0.9rem' }}>
-              Spatial Correlation Scatter Plot • {activePair.pair}
-            </span>
-            <span className="badge badge-gold">r = {activePair.pearson_r}</span>
+      <section className="coupling-detail" aria-label={`${activePair.pair} correlation by grid cell`}>
+        <div className="coupling-chart-column">
+          <div className="coupling-chart-heading">
+            <div><strong>{activePair.pair}</strong><span>Pearson correlation by grid cell · {MONTH_NAMES[month - 1]}</span></div>
+            {activeSummary && <span className={`correlation-value ${activeSummary.pearsonR < 0 ? 'negative' : ''}`}>r {signed(activeSummary.pearsonR)}</span>}
           </div>
-
-          {/* Scatter Plot SVG */}
-          <div style={{ background: 'rgba(8, 12, 24, 0.9)', borderRadius: 'var(--radius-md)', padding: '12px', border: '1px solid var(--border-subtle)' }}>
-            <svg viewBox="0 0 360 260" style={{ width: '100%', height: '220px' }}>
-              {/* Coordinate Grid lines */}
-              <line x1="40" y1="130" x2="330" y2="130" stroke="rgba(255,255,255,0.1)" strokeDasharray="3,3" />
-              <line x1="180" y1="20" x2="180" y2="230" stroke="rgba(255,255,255,0.1)" strokeDasharray="3,3" />
-
-              {/* Linear Regression Fit Line */}
-              <line
-                x1="50"
-                y1={130 - (r * -1 * 85)}
-                x2="310"
-                y2={130 - (r * 1 * 85)}
-                stroke={r > 0 ? '#38ef7d' : '#ff4757'}
-                strokeWidth="2.5"
-                opacity="0.8"
-              />
-
-              {/* 34 Grid Cell Points */}
-              {scatterPoints.map((pt) => (
-                <circle
-                  key={pt.id}
-                  cx={pt.x}
-                  cy={pt.y}
-                  r="5"
-                  fill="var(--cyan)"
-                  stroke="#ffffff"
-                  strokeWidth="1.2"
-                  opacity="0.9"
-                >
-                  <title>Grid Cell #{pt.id}</title>
-                </circle>
-              ))}
-
-              {/* Axes Labels */}
-              <text x="310" y="145" fill="var(--text-muted)" fontSize="10">Var A (+)</text>
-              <text x="45" y="145" fill="var(--text-muted)" fontSize="10">Var A (-)</text>
-              <text x="185" y="30" fill="var(--text-muted)" fontSize="10">Var B (+)</text>
-              <text x="185" y="225" fill="var(--text-muted)" fontSize="10">Var B (-)</text>
-            </svg>
+          <div className="correlation-plot-wrap">
+            {activeSummary ? (
+              <svg className="correlation-plot" viewBox="0 0 410 205" role="img" aria-label={`Pearson correlation by grid cell for ${activePair.pair}; ${plotSamples.length} points shown; mean ${signed(activeSummary.pearsonR)}`}>
+                {[-1, -0.5, 0, 0.5, 1].map((tick) => (
+                  <g key={tick}>
+                    <line x1={axis.left} x2={axis.right} y1={yPosition(tick)} y2={yPosition(tick)} stroke={tick === 0 ? 'rgba(180,198,216,0.28)' : 'rgba(180,198,216,0.1)'} strokeDasharray={tick === 0 ? '0' : '3 5'} />
+                    <text x="29" y={yPosition(tick) + 3} textAnchor="end" fill="#8d9fb1" fontSize="9" fontFamily="var(--font-mono)">{tick.toFixed(1)}</text>
+                  </g>
+                ))}
+                <line x1={axis.left} x2={axis.right} y1={yPosition(activeSummary.pearsonR)} y2={yPosition(activeSummary.pearsonR)} stroke="#b8c0dd" strokeWidth="1.5" strokeDasharray="5 4" />
+                {plotSamples.map((sample, index) => {
+                  const value = sample.pearsonR;
+                  const isHighlighted = sigFilter !== 'all';
+                  return (
+                    <circle key={`${sample.latitude}-${sample.longitude}`} cx={xPosition(index)} cy={yPosition(value)} r="4.1" fill={isHighlighted ? '#91cedb' : '#73869b'} stroke="#101b29" strokeWidth="1.2" opacity="0.92">
+                      <title>{`${sample.division} · ${sample.latitude}°N, ${sample.longitude}°E · Pearson r ${signed(value)} · p ${sample.pearsonP.toExponential(2)} · q ${sample.pearsonQ.toExponential(2)}`}</title>
+                    </circle>
+                  );
+                })}
+                <text x={axis.left} y="194" fill="#8d9fb1" fontSize="9">{plotSamples.length} / {samples.length} cells · north to south</text>
+                <text x={axis.right} y="194" textAnchor="end" fill="#b5b1d4" fontSize="9">national mean</text>
+              </svg>
+            ) : (
+              <div className="correlation-empty"><GitFork size={19} /><span>{isLoading ? 'Loading grid-cell correlations…' : loadError ? 'Correlation records could not be loaded.' : `No grid-cell records for ${division} in ${MONTH_NAMES[month - 1]}.`}</span></div>
+            )}
           </div>
+          <div className="plot-legend"><span><i className="plot-dot significant" /> {sigFilter === 'all' ? 'All cells' : sigFilter === 'fdr' ? 'FDR significant cells' : 'Nominally significant cells'}</span><span><i className="plot-mean" /> Mean r · all grid cells</span></div>
         </div>
 
-        {/* Narrative & Scientific Interpretation */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <h4 style={{ color: 'var(--text-highlight)', fontSize: '0.95rem' }}>
-            Earth-System Feedback Mechanism
-          </h4>
-          <p style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-            {activePair.description}
-          </p>
-
-          <div style={{ background: 'rgba(0, 229, 255, 0.05)', border: '1px solid rgba(0, 229, 255, 0.2)', borderRadius: 'var(--radius-sm)', padding: '10px', fontSize: '0.775rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--cyan)', fontWeight: 600, marginBottom: '4px' }}>
-              <Info size={14} />
-              <span>Statistical Rigor Note</span>
-            </div>
-            <p style={{ color: 'var(--text-muted)' }}>
-              Pearson r evaluates linear association; Spearman ρ tests monotonic rank correlation. Significance is locked via Benjamini-Hochberg FDR correction across 72 relationship testing families (m=34).
-            </p>
-          </div>
+        <div className="coupling-interpretation">
+          <span className="interpretation-label">What the evidence says</span>
+          <h4>{(activeSummary?.pearsonR ?? activePair.pearson_r) < 0 ? 'Signals move in opposite directions' : 'Signals move in the same direction'}</h4>
+          <p>Across {activeSummary?.total ?? 0} grid cells, {VARIABLE_LABELS[activePair.pair.split(' ↔ ')[0]]} and {VARIABLE_LABELS[activePair.pair.split(' ↔ ')[1]]} have a mean Pearson correlation of <b>{signed(activeSummary?.pearsonR)}</b> for {MONTH_NAMES[month - 1].toLowerCase()} observations.</p>
+          <div className="statistical-note"><ShieldCheck size={14} /><span>{activeSummary ? sigFilter === 'all' ? `${activeSummary.total} grid cells shown.` : `${activeSummary.pearsonSignificant} of ${activeSummary.total} cells pass ${sigFilter === 'fdr' ? 'BH-FDR at q < 0.05' : 'the nominal p < 0.05 threshold'}.` : 'No evidence is available for this selection.'} Correlation measures association, not causation.</span></div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

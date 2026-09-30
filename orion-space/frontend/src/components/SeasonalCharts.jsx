@@ -1,160 +1,101 @@
-import React from 'react';
-import { BarChart3, TrendingUp, Compass, Award } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { BarChart3, MapPin } from 'lucide-react';
+import { CANONICAL_VARIABLES, getSeasonalTrendData } from '../services/api';
 
-const MONTH_SLOPES_T2M = [
-  { month: 'Jan', slope: 0.124, sig: false },
-  { month: 'Feb', slope: 0.185, sig: true },
-  { month: 'Mar', slope: 0.210, sig: true },
-  { month: 'Apr', slope: 0.245, sig: true },
-  { month: 'May', slope: 0.280, sig: true },
-  { month: 'Jun', slope: 0.215, sig: true },
-  { month: 'Jul', slope: 0.190, sig: true },
-  { month: 'Aug', slope: 0.265, sig: true },
-  { month: 'Sep', slope: 0.345, sig: true, peak: true }, // Peak national mean
-  { month: 'Oct', slope: 0.295, sig: true },
-  { month: 'Nov', slope: 0.220, sig: true },
-  { month: 'Dec', slope: 0.150, sig: false },
-];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-const DIVISION_MEANS_SEP_T2M = [
-  { division: 'Sylhet', slope: 0.4097, peak: true, cells: 2 },
-  { division: 'Mymensingh', slope: 0.3680, cells: 2 },
-  { division: 'Dhaka', slope: 0.3548, cells: 5 },
-  { division: 'Chattogram', slope: 0.3475, cells: 8 },
-  { division: 'Rangpur', slope: 0.3275, cells: 4 },
-  { division: 'Rajshahi', slope: 0.3183, cells: 4 },
-  { division: 'Barishal', slope: 0.3013, cells: 3 },
-  { division: 'Khulna', slope: 0.3070, cells: 4 },
-];
+function formatSlope(value, digits = 3) {
+  if (value == null || !Number.isFinite(value)) return '—';
+  return `${value > 0 ? '+' : ''}${value.toFixed(digits)}`;
+}
 
-export default function SeasonalCharts({ variable = 'T2M', unit = '°C/decade' }) {
-  const maxSlopeMonth = Math.max(...MONTH_SLOPES_T2M.map(d => d.slope));
-  const maxSlopeDiv = Math.max(...DIVISION_MEANS_SEP_T2M.map(d => d.slope));
+export default function SeasonalCharts({ variable = 'T2M', unit = '°C/decade', selectedMonth = 9, selectedDivision = 'All Bangladesh', testType = 'OLS', sigFilter = 'fdr', onMonthSelect = () => {}, onDivisionSelect = () => {} }) {
+  const [chartData, setChartData] = useState({ monthly: [], divisions: [] });
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  useEffect(() => {
+    let isCurrent = true;
+    setIsLoading(true);
+    setLoadError(false);
+    getSeasonalTrendData(variable, selectedMonth, selectedDivision, testType, sigFilter)
+      .then((profile) => { if (isCurrent) setChartData(profile); })
+      .catch(() => { if (isCurrent) setLoadError(true); })
+      .finally(() => { if (isCurrent) setIsLoading(false); });
+    return () => { isCurrent = false; };
+  }, [variable, selectedMonth, selectedDivision, testType, sigFilter]);
+  const variableMeta = CANONICAL_VARIABLES.find((item) => item.id === variable) || CANONICAL_VARIABLES[0];
+  const countLabel = sigFilter === 'fdr' ? 'FDR-significant' : sigFilter === 'raw' ? 'nominally significant' : 'grid cells shown';
+  const methodLabel = testType === 'Mann-Kendall' ? 'Sen’s slope' : 'OLS trend';
+  const monthly = Array.isArray(chartData?.monthly) ? chartData.monthly.filter(Boolean) : [];
+  const divisions = Array.isArray(chartData?.divisions) ? chartData.divisions.filter(Boolean) : [];
+  const values = monthly.map((row) => row?.mean).filter(Number.isFinite);
+  const low = Math.min(0, ...values);
+  const high = Math.max(0, ...values);
+  const spread = Math.max(high - low, 0.001);
+  const xAt = (index) => 50 + (index / 11) * 500;
+  const yAt = (value) => 170 - ((value - low) / spread) * 124;
+  const line = monthly.map((row, index) => row?.mean == null ? null : `${index === 0 || monthly[index - 1]?.mean == null ? 'M' : 'L'} ${xAt(index)} ${yAt(row.mean)}`).filter(Boolean).join(' ');
+  const maximum = Math.max(...divisions.map((item) => Math.abs(item?.mean ?? 0)), 0.001);
 
   return (
-    <div className="visualizer-container" style={{ padding: '24px', overflowY: 'auto' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-        <div>
-          <h3 style={{ color: 'var(--cyan)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <BarChart3 size={20} />
-            <span>Seasonal Progression & Divisional Disaggregation (2001–2025)</span>
-          </h3>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-            Comparing annual cycle trend dynamics and regional vulnerability patterns across Bangladesh.
-          </p>
-        </div>
-
-        <span className="badge badge-gold">
-          <Award size={14} />
-          <span>Sylhet Division: +0.4214 Peak</span>
-        </span>
+    <div className="visualizer-container seasonal-dashboard">
+      <div className="seasonal-heading">
+        <div><h3><BarChart3 size={17} /> Monthly trend profile</h3><p>{variableMeta.name} · {methodLabel} · {selectedDivision === 'All Bangladesh' ? 'Bangladesh' : selectedDivision}</p></div>
+        <span className="chart-unit">{unit}</span>
       </div>
+      {isLoading && <p className="chart-data-status" role="status">Loading precomputed trend records…</p>}
+      {loadError && <p className="chart-data-status error" role="status">Trend records could not be loaded.</p>}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-        {/* Chart 1: 12-Month Annual Profile */}
-        <div className="glass-panel" style={{ padding: '18px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-            <span style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-highlight)' }}>
-              12-Month National Mean Slope Profile
-            </span>
-            <span className="badge badge-cyan" style={{ fontSize: '0.7rem' }}>Annual Cycle</span>
-          </div>
+      <section className="seasonal-line-card" aria-label="Monthly mean trend">
+        <div className="chart-section-head"><strong>Trend through the year</strong><span>Select a month to update the map</span></div>
+        <svg className="seasonal-line-chart" viewBox="0 0 600 220" role="group" aria-label={`Mean ${variableMeta.name} trend across the twelve months`}>
+          <rect x="133" y="24" width="136" height="152" fill="rgba(102, 164, 176, 0.035)" />
+          <rect x="269" y="24" width="136" height="152" fill="rgba(91, 143, 187, 0.045)" />
+          <rect x="405" y="24" width="136" height="152" fill="rgba(210, 163, 101, 0.04)" />
+          {[0, 0.5, 1].map((fraction) => {
+            const value = low + spread * fraction;
+            const y = yAt(value);
+            return <g key={fraction}><line x1="43" x2="559" y1={y} y2={y} stroke={Math.abs(value) < spread * 0.04 ? 'rgba(170,190,210,0.25)' : 'rgba(170,190,210,0.11)'} strokeDasharray={Math.abs(value) < spread * 0.04 ? '0' : '3 5'} /><text x="36" y={y + 3} textAnchor="end" fill="#8699ac" fontSize="9" fontFamily="var(--font-mono)">{value.toFixed(2)}</text></g>;
+          })}
+          <text x="199" y="15" textAnchor="middle" fill="#91b8bc" fontSize="8">PRE-MONSOON</text>
+          <text x="337" y="15" textAnchor="middle" fill="#92aecb" fontSize="8">MONSOON</text>
+          <text x="473" y="15" textAnchor="middle" fill="#c0a982" fontSize="8">POST-MONSOON</text>
+          {line && <path key={`${variable}-${selectedDivision}-${testType}-${sigFilter}`} className="trend-line" pathLength={1} d={line} fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.92" />}
+          {monthly.map((row, index) => {
+            if (row?.mean == null) return null;
+            const x = xAt(index);
+            const y = yAt(row.mean);
+            const selected = row.month === Number(selectedMonth);
+            const color = row.mean < 0 ? '#7eacd1' : '#dfaa68';
+            return (
+              <g key={row.month} role="button" tabIndex="0" aria-label={`${MONTHS[index]} average trend ${formatSlope(row.mean)} ${unit}; ${row.significant} of ${row.total} ${countLabel}`} aria-pressed={selected} onClick={() => onMonthSelect(row.month)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onMonthSelect(row.month); } }} className={`month-point ${selected ? 'selected' : ''}`}>
+                <circle cx={x} cy={y} r={selected ? 7 : 5} fill={color} stroke={selected ? '#f0e4ca' : '#122033'} strokeWidth={selected ? 2 : 1.5} />
+                <title>{`${MONTHS[index]} · ${formatSlope(row.mean)} ${unit} · ${row.significant}/${row.total} ${countLabel}`}</title>
+              </g>
+            );
+          })}
+          {MONTHS.map((monthName, index) => <text key={monthName} x={xAt(index)} y="199" textAnchor="middle" fill={index + 1 === Number(selectedMonth) ? '#e4c79e' : '#8b9daf'} fontSize="9" fontFamily="var(--font-body)">{monthName}</text>)}
+        </svg>
+        <div className="seasonal-chart-footnote"><span><i className="footnote-dot warm" /> Increasing</span><span><i className="footnote-dot cool" /> Decreasing</span><span>{monthly.find((row) => row?.month === Number(selectedMonth))?.significant ?? 0} {countLabel} in {MONTHS[Number(selectedMonth) - 1]}</span></div>
+      </section>
 
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', height: '180px', paddingBottom: '24px', borderBottom: '1px solid var(--border-subtle)', position: 'relative' }}>
-            {MONTH_SLOPES_T2M.map((m) => {
-              const heightPercent = (m.slope / (maxSlopeMonth * 1.15)) * 100;
-              return (
-                <div
-                  key={m.month}
-                  style={{
-                    flex: 1,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    height: '100%',
-                    justifyContent: 'flex-end',
-                    position: 'relative',
-                  }}
-                >
-                  <div
-                    style={{
-                      width: '100%',
-                      height: `${heightPercent}%`,
-                      background: m.peak
-                        ? 'linear-gradient(180deg, #ff3366 0%, #ff922b 100%)'
-                        : 'linear-gradient(180deg, #00e5ff 0%, #3a86ff 100%)',
-                      borderRadius: '4px 4px 0 0',
-                      boxShadow: m.peak ? '0 0 14px rgba(255, 51, 102, 0.4)' : 'none',
-                      transition: 'all 0.2s ease',
-                      cursor: 'pointer',
-                    }}
-                    title={`${m.month}: +${m.slope} ${unit} (${m.sig ? 'FDR Sig' : 'Not Sig'})`}
-                  />
-                  <span style={{
-                    position: 'absolute',
-                    bottom: '-22px',
-                    fontSize: '0.675rem',
-                    color: m.peak ? 'var(--gold)' : 'var(--text-muted)',
-                    fontWeight: m.peak ? 'bold' : 'normal',
-                  }}>
-                    {m.month}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '14px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-            <span>⭐ Peak Month: <b>September (+0.3452 °C/dec)</b></span>
-            <span>33/34 Cells FDR Sig</span>
-          </div>
+      <section className="division-chart-card" aria-label="Trend by Bangladesh division">
+        <div className="chart-section-head"><strong>By division</strong><span>{MONTHS[Number(selectedMonth) - 1]} · select a region to filter</span></div>
+        <div className="division-chart-rows">
+          {divisions.map((item) => {
+            const ratio = Math.abs(item.mean ?? 0) / maximum;
+            const active = selectedDivision === item.name;
+            return (
+              <button type="button" key={item.name} className={`division-chart-row ${active ? 'active' : ''}`} onClick={() => onDivisionSelect(active ? 'All Bangladesh' : item.name)} aria-pressed={active}>
+                <span className="division-chart-name"><MapPin size={11} />{item.name}</span>
+                <span className="division-chart-track"><span className={`division-chart-fill ${item.mean < 0 ? 'cool' : 'warm'}`} style={{ transform: `scaleX(${ratio})` }} /></span>
+                <span className="division-chart-value">{formatSlope(item.mean)}</span>
+              </button>
+            );
+          })}
         </div>
-
-        {/* Chart 2: 8-Division Regional Breakdown */}
-        <div className="glass-panel" style={{ padding: '18px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-            <span style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-highlight)' }}>
-              September Mean Trend Across 8 Divisions
-            </span>
-            <span className="badge badge-emerald" style={{ fontSize: '0.7rem' }}>Regional Rates</span>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {DIVISION_MEANS_SEP_T2M.map((d) => {
-              const widthPercent = (d.slope / maxSlopeDiv) * 100;
-              return (
-                <div key={d.division} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ width: '90px', fontSize: '0.75rem', color: d.peak ? 'var(--gold)' : 'var(--text-secondary)', fontWeight: d.peak ? 700 : 500 }}>
-                    {d.division}
-                  </span>
-
-                  <div style={{ flex: 1, background: 'rgba(255, 255, 255, 0.05)', borderRadius: '4px', height: '14px', overflow: 'hidden' }}>
-                    <div
-                      style={{
-                        width: `${widthPercent}%`,
-                        height: '100%',
-                        background: d.peak
-                          ? 'linear-gradient(90deg, #ff7700, #ff3366)'
-                          : 'linear-gradient(90deg, #00e5ff, #38ef7d)',
-                        borderRadius: '4px',
-                        transition: 'width 0.4s ease',
-                      }}
-                    />
-                  </div>
-
-                  <span style={{ width: '65px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-main)' }}>
-                    +{d.slope.toFixed(4)}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-
-          <div style={{ marginTop: '12px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-            Calculated across geoBoundaries ADM0 mainland intersection points.
-          </div>
-        </div>
-      </div>
+        <div className="division-chart-footnote">Mean {variableMeta.name.toLowerCase()} trend across mainland grid cells · {divisions.length} divisions</div>
+      </section>
     </div>
   );
 }
