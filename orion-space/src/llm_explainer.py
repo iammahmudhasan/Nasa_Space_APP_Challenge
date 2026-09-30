@@ -55,7 +55,9 @@ CRITICAL SCIENTIFIC RULES:
 5. Format any small or underflow p-values as "p < 1e-6" rather than exact zero.
 6. For cross-variable relationships and correlations, describe observed statistical co-occurrences. Strictly avoid claiming causal mechanisms.
 7. Include the required spatial dependence caveats in the scientific_caution field.
-8. Output MUST be valid JSON adhering to the schema:
+8. Write in clear, natural language for a curious general reader. Lead with the answer, explain what the numbers mean, and avoid unexplained jargon.
+9. Return a short user-facing explanation, not private reasoning or an internal calculation transcript.
+10. Output MUST be valid JSON adhering to the schema:
    {"headline": "...", "key_findings": ["...", "..."], "scientific_caution": "..."}
 """
 
@@ -99,14 +101,13 @@ def synthesize_deterministic_explanation(evidence: Dict[str, Any]) -> GroundedEx
         min_loc = stats.get("min_slope_location", {}).get("division", "Bangladesh")
         claim = stats.get("formatted_significance_claim", f"{fdr_sig_ols} of {total_cells} cells remained significant under FDR.")
 
-        direction_word = "Warming" if mean_slope > 0 else "Cooling" if mean_slope < 0 else "Change"
-        headline = f"Bangladesh {var_name} {direction_word} in {month_name}: National Mean {mean_slope:+.4f} {rate_unit}"
+        direction_word = "increased" if mean_slope > 0 else "decreased" if mean_slope < 0 else "showed little net change"
+        headline = f"{var_name} in Bangladesh {direction_word} by {mean_slope:+.4f} {rate_unit} in {month_name}."
 
         key_findings = [
             claim,
-            f"Decadal trend rates across evaluated cells range from {min_slope:+.4f} {rate_unit} ({min_loc} region) to {max_slope:+.4f} {rate_unit} ({max_loc} region).",
-            f"Non-parametric Mann-Kendall test corroborates the pattern with {fdr_sig_mk} of {total_cells} cells significant after FDR correction at q < 0.05.",
-            f"Linear OLS model indicates a national average decadal rate of change of {mean_slope:+.4f} {rate_unit} across 2001–2025.",
+            f"Across the mapped cells, rates ranged from {min_slope:+.4f} {rate_unit} in {min_loc} to {max_slope:+.4f} {rate_unit} in {max_loc}.",
+            f"A second, rank-based Mann–Kendall check found {fdr_sig_mk} of {total_cells} cells significant after FDR correction.",
         ]
 
         return GroundedExplanation(
@@ -125,14 +126,14 @@ def synthesize_deterministic_explanation(evidence: Dict[str, Any]) -> GroundedEx
         total_cells = stats.get("total_cells_evaluated", 34)
         claim = stats.get("formatted_significance_claim", "")
 
-        corr_type = "Positive" if mean_r > 0.3 else "Negative" if mean_r < -0.3 else "Weak/Neutral"
-        headline = f"Spatial Coupling in {month_name}: {var_a} ↔ {var_b} (Mean Pearson r = {mean_r:+.3f})"
+        corr_type = "tended to move together" if mean_r > 0.3 else "tended to move in opposite directions" if mean_r < -0.3 else "showed a weak average relationship"
+        mean_rho = stats.get("mean_spearman_rho", 0.0)
+        headline = f"In {month_name}, {var_a} and {var_b} {corr_type} across Bangladesh (average Pearson r = {mean_r:+.3f})."
 
         key_findings = [
             claim if claim else f"Observed statistical correlation in {sig_r_count} of {total_cells} cells remained significant after FDR correction (q < 0.05).",
-            f"National mean Pearson correlation coefficient is r = {mean_r:+.4f} across mainland Bangladesh.",
-            f"Spearman rank correlation demonstrates statistical significance in {sig_rho_count} of {total_cells} cells at q < 0.05.",
-            f"Co-occurrence breakdown demonstrates observed synchronous changes across the 25-year record (2001–2025).",
+            f"Average Pearson r was {mean_r:+.3f}; average Spearman rank correlation was {mean_rho:+.3f} across {total_cells} locations.",
+            f"The rank-based test also passed FDR correction in {sig_rho_count} of {total_cells} cells. Correlation does not show that one measure causes the other.",
         ]
 
         return GroundedExplanation(

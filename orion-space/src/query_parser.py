@@ -296,12 +296,10 @@ def parse_natural_query(
     direction_found = extract_direction(clean_text)
     sig_filter = extract_significance_filter(clean_text)
 
-    # Apply variable overrides if specified
-    if "variable" in overrides and overrides["variable"]:
+    # UI filters provide defaults; a variable or month named in the question wins.
+    if "variable" in overrides and overrides["variable"] and not vars_found:
         var_override = Variable(overrides["variable"])
-        if var_override in vars_found:
-            vars_found.remove(var_override)
-        vars_found.insert(0, var_override)
+        vars_found.append(var_override)
 
     if "secondary_variable" in overrides and overrides["secondary_variable"]:
         sec_var_override = Variable(overrides["secondary_variable"])
@@ -311,7 +309,7 @@ def parse_natural_query(
             vars_found.append(sec_var_override)
 
     # Apply month overrides
-    if "month" in overrides and overrides["month"] is not None:
+    if "month" in overrides and overrides["month"] is not None and month_found is None:
         m_val = overrides["month"]
         if isinstance(m_val, str) and not m_val.isdigit():
             m_converted = extract_month(m_val)
@@ -319,6 +317,26 @@ def parse_natural_query(
                 month_found = m_converted
         else:
             month_found = int(m_val)
+
+    if overrides.get("location") and location_found.scope == LocationScope.NATIONAL:
+        location_found = LocationFilter.model_validate(overrides["location"])
+
+    has_explicit_significance = bool(re.search(
+        r"\b(fdr|benjamini|corrected|raw|uncorrected|unadjusted|nominal\s*p|all\s*cells|regardless\s*of\s*significance)\b",
+        clean_text,
+        re.IGNORECASE,
+    ))
+    selected_significance = sig_filter.value if has_explicit_significance else overrides.get("significance_filter", sig_filter.value)
+    has_explicit_test = bool(re.search(
+        r"\b(mann[- ]?kendall|mk(?:\s*test)?|non[- ]parametric|sen(?:'s)?\s*slope|ols|ordinary\s*least|spearman|pearson|both\s*(?:tests|metrics)?)\b",
+        clean_text,
+        re.IGNORECASE,
+    ))
+
+    def selected_test_type(is_relationship: bool) -> str:
+        if has_explicit_test:
+            return extract_test_type(clean_text, is_relationship)
+        return overrides.get("test_type", extract_test_type(clean_text, is_relationship))
 
     # --------------------------------------------------------------------------
     # Intent Detection Logic
@@ -367,10 +385,8 @@ def parse_natural_query(
         query_dict["secondary_variable"] = vars_found[1].value
         query_dict["month"] = month_found if month_found is not None else 5  # Default to May (pre-monsoon)
         query_dict["location"] = location_found.model_dump()
-        query_dict["significance_filter"] = overrides.get("significance_filter", sig_filter.value)
-        query_dict["test_type"] = overrides.get(
-            "test_type", extract_test_type(clean_text, is_relationship=True)
-        )
+        query_dict["significance_filter"] = selected_significance
+        query_dict["test_type"] = selected_test_type(is_relationship=True)
 
     elif intent == "location_profile":
         query_dict["location"] = location_found.model_dump()
@@ -378,15 +394,13 @@ def parse_natural_query(
             query_dict["variable"] = vars_found[0].value
         if month_found:
             query_dict["month"] = month_found
-        query_dict["significance_filter"] = overrides.get("significance_filter", sig_filter.value)
+        query_dict["significance_filter"] = selected_significance
 
     elif intent == "seasonal_cycle":
         query_dict["variable"] = vars_found[0].value if vars_found else Variable.T2M.value
         query_dict["location"] = location_found.model_dump()
-        query_dict["significance_filter"] = overrides.get("significance_filter", sig_filter.value)
-        query_dict["test_type"] = overrides.get(
-            "test_type", extract_test_type(clean_text, is_relationship=False)
-        )
+        query_dict["significance_filter"] = selected_significance
+        query_dict["test_type"] = selected_test_type(is_relationship=False)
 
     elif intent == "comparative_extremes":
         query_dict["variable"] = vars_found[0].value if vars_found else Variable.T2M.value
@@ -394,10 +408,8 @@ def parse_natural_query(
             "metric", extract_extremes_metric(clean_text).value
         )
         query_dict["location"] = location_found.model_dump()
-        query_dict["significance_filter"] = overrides.get("significance_filter", sig_filter.value)
-        query_dict["test_type"] = overrides.get(
-            "test_type", extract_test_type(clean_text, is_relationship=False)
-        )
+        query_dict["significance_filter"] = selected_significance
+        query_dict["test_type"] = selected_test_type(is_relationship=False)
 
     else:
         # Default: trend
@@ -405,10 +417,8 @@ def parse_natural_query(
         query_dict["month"] = month_found if month_found is not None else 9  # Default to September
         query_dict["location"] = location_found.model_dump()
         query_dict["direction"] = overrides.get("direction", direction_found.value)
-        query_dict["significance_filter"] = overrides.get("significance_filter", sig_filter.value)
-        query_dict["test_type"] = overrides.get(
-            "test_type", extract_test_type(clean_text, is_relationship=False)
-        )
+        query_dict["significance_filter"] = selected_significance
+        query_dict["test_type"] = selected_test_type(is_relationship=False)
 
     # --------------------------------------------------------------------------
     # Deterministic Validation via Pydantic

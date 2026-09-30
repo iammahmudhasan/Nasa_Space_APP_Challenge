@@ -297,6 +297,12 @@ def analyze_query(request: AnalysisRequest):
             res_var = f"{q_meta['variable_a']} ↔ {q_meta['variable_b']}"
         elif not res_var and "variable" in q_meta:
             res_var = q_meta.get("variable")
+        query_location = getattr(parsed.query_object, "location", None)
+        division_name = getattr(getattr(query_location, "division_name", None), "value", None)
+        resolved_test_type = getattr(getattr(parsed.query_object, "test_type", None), "value", None)
+        resolved_significance = getattr(getattr(parsed.query_object, "significance_filter", None), "value", None)
+        resolved_variables = [q_meta.get("variable_a"), q_meta.get("variable_b")]
+        resolved_variables = [item for item in resolved_variables if item]
 
         # Assemble unified response matching official API contract
         response_payload = {
@@ -311,6 +317,10 @@ def analyze_query(request: AnalysisRequest):
                 "month_num": q_meta.get("month_num"),
                 "variable_a": q_meta.get("variable_a"),
                 "variable_b": q_meta.get("variable_b"),
+                "resolved_variables": resolved_variables,
+                "resolved_division": division_name or "All Bangladesh",
+                "resolved_test_type": resolved_test_type,
+                "resolved_significance_filter": resolved_significance,
             },
             "scientific_metrics": evidence.get("summary_statistics", {}),
             "locations": evidence.get("cells", []),

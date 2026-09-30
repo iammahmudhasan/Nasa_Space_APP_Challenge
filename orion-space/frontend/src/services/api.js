@@ -3,7 +3,123 @@
  * Connects to FastAPI backend (/api/v1/...) with robust offline resilience.
  */
 
+import relationshipCsvUrl from '../../../data/bangladesh_variable_relationships_fdr.csv?url';
+import trendCsvUrl from '../../../data/bangladesh_multivariable_trends_fdr.csv?url';
+
 const API_BASE = '/api/v1';
+
+async function readCsvRows(url) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Unable to load analysis dataset (${response.status})`);
+  const lines = (await response.text()).trim().split(/\r?\n/);
+  const columns = lines[0].split(',');
+  return lines.slice(1).map((line) => {
+    const values = line.split(',');
+    return Object.fromEntries(columns.map((column, index) => [column, values[index]]));
+  });
+}
+
+let relationshipRowsPromise;
+let trendRowsPromise;
+const loadRelationshipRows = () => (relationshipRowsPromise ||= readCsvRows(relationshipCsvUrl));
+const loadTrendRows = () => (trendRowsPromise ||= readCsvRows(trendCsvUrl));
+
+const DIVISION_CENTROIDS = {
+  Dhaka: [23.8103, 90.4125],
+  Chattogram: [22.3569, 91.7832],
+  Sylhet: [24.8949, 91.8687],
+  Rajshahi: [24.3745, 88.6042],
+  Khulna: [22.8456, 89.5403],
+  Barishal: [22.701, 90.3535],
+  Rangpur: [25.7439, 89.2752],
+  Mymensingh: [24.7471, 90.4203],
+};
+
+function nearestDivision(latitude, longitude) {
+  return Object.entries(DIVISION_CENTROIDS).reduce((nearest, [name, [lat, lon]]) => {
+    const distance = (latitude - lat) ** 2 + (longitude - lon) ** 2;
+    return distance < nearest.distance ? { name, distance } : nearest;
+  }, { name: 'Dhaka', distance: Infinity }).name;
+}
+
+export async function getSeasonalTrendData(variable, selectedMonth, division = 'All Bangladesh', testType = 'OLS', sigFilter = 'fdr') {
+  const trendRows = await loadTrendRows();
+  const rows = trendRows.filter((row) => row.variable === variable).map((row) => ({
+    month: Number(row.month_num),
+    slope: Number(testType === 'Mann-Kendall' ? row.sen_slope_per_decade : row.slope_per_decade),
+    significant: sigFilter === 'all' ? true : testType === 'Mann-Kendall'
+      ? (row[sigFilter === 'raw' ? 'is_significant_mk' : 'is_significant_mk_fdr'] === 'True')
+      : (row[sigFilter === 'raw' ? 'is_significant_ols' : 'is_significant_ols_fdr'] === 'True'),
+    division: nearestDivision(Number(row.latitude), Number(row.longitude)),
+  }));
+  const scopedRows = division === 'All Bangladesh' ? rows : rows.filter((row) => row.division === division);
+
+  const monthly = Array.from({ length: 12 }, (_, index) => {
+    const monthRows = scopedRows.filter((row) => row.month === index + 1);
+    return {
+      month: index + 1,
+      mean: monthRows.length ? monthRows.reduce((sum, row) => sum + row.slope, 0) / monthRows.length : null,
+      significant: monthRows.filter((row) => row.significant).length,
+      total: monthRows.length,
+    };
+  });
+
+  const divisions = Object.keys(DIVISION_CENTROIDS);
+  const byDivision = divisions.map((name) => {
+    const divisionRows = rows.filter((row) => row.division === name && row.month === Number(selectedMonth));
+    return {
+      name,
+      mean: divisionRows.length ? divisionRows.reduce((sum, row) => sum + row.slope, 0) / divisionRows.length : null,
+      significant: divisionRows.filter((row) => row.significant).length,
+      total: divisionRows.length,
+    };
+  }).filter((row) => row.total > 0).sort((a, b) => (b.mean ?? -Infinity) - (a.mean ?? -Infinity));
+
+  return { monthly, divisions: byDivision };
+}
+
+export async function getRelationshipSamples(pair, month, division = 'All Bangladesh') {
+  const relationshipRows = await loadRelationshipRows();
+  const [variableA, variableB] = pair.split(' ↔ ');
+  return relationshipRows.flatMap((row) => {
+    const sameOrder = row.variable_a === variableA && row.variable_b === variableB;
+    const reverseOrder = row.variable_a === variableB && row.variable_b === variableA;
+    if ((!sameOrder && !reverseOrder) || Number(row.month_num) !== Number(month)) return [];
+    const cellDivision = row.nearest_division || row.division || nearestDivision(Number(row.latitude), Number(row.longitude));
+    if (division !== 'All Bangladesh' && cellDivision !== division) return [];
+    return [{
+      latitude: Number(row.latitude),
+      longitude: Number(row.longitude),
+      division: cellDivision,
+      pearsonR: Number(row.pearson_r),
+      spearmanRho: Number(row.spearman_rho),
+      pearsonP: Number(row.pearson_p),
+      spearmanP: Number(row.spearman_p),
+      pearsonQ: Number(row.pearson_q),
+      spearmanQ: Number(row.spearman_q),
+      pearsonSignificant: row.pearson_significant_fdr === 'True',
+      spearmanSignificant: row.spearman_significant_fdr === 'True',
+      pearsonRawSignificant: row.is_pearson_sig === 'True',
+      spearmanRawSignificant: row.is_spearman_sig === 'True',
+      coOccurrence: row.co_occurrence_type,
+      reversed: reverseOrder,
+    }];
+  }).sort((a, b) => b.latitude - a.latitude || a.longitude - b.longitude);
+}
+
+export function summarizeRelationshipSamples(samples, sigFilter = 'fdr') {
+  if (!samples.length) return null;
+  const average = (field) => samples.reduce((sum, sample) => sum + sample[field], 0) / samples.length;
+  const pearsonSignificant = sigFilter === 'fdr' ? 'pearsonSignificant' : 'pearsonRawSignificant';
+  const spearmanSignificant = sigFilter === 'fdr' ? 'spearmanSignificant' : 'spearmanRawSignificant';
+  return {
+    pearsonR: average('pearsonR'),
+    spearmanRho: average('spearmanRho'),
+    pearsonSignificant: sigFilter === 'all' ? samples.length : samples.filter((sample) => sample[pearsonSignificant]).length,
+    spearmanSignificant: sigFilter === 'all' ? samples.length : samples.filter((sample) => sample[spearmanSignificant]).length,
+    total: samples.length,
+  };
+}
 
 // Canonical fallback data for the 34 retained Bangladesh mainland grid cells (September T2M)
 export const CANONICAL_34_CELLS = [
@@ -143,76 +259,183 @@ export async function fetchSpatialTrends(variable = "T2M", month = 9, testType =
     const res = await fetch(`${API_BASE}/trends/spatial?${params.toString()}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
-  } catch (err) {
-    console.warn("Using canonical fallback trend response:", err);
-    return {
-      status: "fallback",
-      summary: {
-        total_cells_evaluated: 34,
-        fdr_significant_ols_count: 33,
-        raw_significant_ols_count: 33,
-        raw_discoveries_removed_after_fdr: 0,
-        national_mean_slope: 0.3452,
-        min_slope: 0.2640,
-        max_slope: 0.4214,
-        max_slope_location: { latitude: 24.5, longitude: 91.875, division: "Sylhet" },
-        formatted_significance_claim: "33 of 34 cells remained significant after Benjamini-Hochberg FDR correction at q < 0.05.",
-      },
-      cells: CANONICAL_34_CELLS,
-    };
+  } catch (error) {
+    console.warn("Using the bundled trend dataset:", error);
+    try {
+      const rows = (await loadTrendRows()).filter((row) => row.variable === variable && Number(row.month_num) === Number(month));
+      const cells = rows.map((row) => {
+        const olsSlope = Number(row.slope_per_decade);
+        const senSlope = Number(row.sen_slope_per_decade);
+        const pOls = Number(row.p_value_ols ?? row.p_value);
+        const pMk = Number(row.p_value_mk);
+        const qOls = Number(row.q_value_ols);
+        const qMk = Number(row.q_value_mk);
+        const olsRawSignificant = row.is_significant_ols === 'True';
+        const mkRawSignificant = row.is_significant_mk === 'True';
+        const olsFdrSignificant = row.is_significant_ols_fdr === 'True';
+        const mkFdrSignificant = row.is_significant_mk_fdr === 'True';
+        const latitude = Number(row.latitude);
+        const longitude = Number(row.longitude);
+        return {
+          latitude,
+          longitude,
+          variable,
+          month: Number(month),
+          division: nearestDivision(latitude, longitude),
+          slope: testType === 'Mann-Kendall' ? senSlope : olsSlope,
+          slope_per_decade: olsSlope,
+          sen_slope: senSlope,
+          p_ols: pOls,
+          p_mk: pMk,
+          q_ols: qOls,
+          q_mk: qMk,
+          q_value_ols: qOls,
+          q_value_mk: qMk,
+          p_value_ols: pOls,
+          p_value_mk: pMk,
+          is_significant_ols: olsRawSignificant,
+          is_significant_mk: mkRawSignificant,
+          is_significant_ols_fdr: olsFdrSignificant,
+          is_significant_mk_fdr: mkFdrSignificant,
+          is_sig: testType === 'Mann-Kendall' ? mkFdrSignificant : olsFdrSignificant,
+        };
+      });
+      const mean = (field) => cells.length ? cells.reduce((sum, cell) => sum + cell[field], 0) / cells.length : 0;
+      const mainSlopeField = testType === 'Mann-Kendall' ? 'sen_slope' : 'slope_per_decade';
+      const sorted = [...cells].sort((a, b) => b[mainSlopeField] - a[mainSlopeField]);
+      const peak = sorted[0];
+      const selectedCells = cells.filter((cell) => sigFilter === 'all'
+        || (sigFilter === 'raw'
+          ? (testType === 'Mann-Kendall' ? cell.is_significant_mk : cell.is_significant_ols)
+          : cell.is_sig));
+      return {
+        status: 'bundled-data',
+        summary: {
+          total_cells_evaluated: cells.length,
+          fdr_significant_ols_count: cells.filter((cell) => cell.is_significant_ols_fdr).length,
+          raw_significant_ols_count: cells.filter((cell) => cell.is_significant_ols).length,
+          fdr_significant_mk_count: cells.filter((cell) => cell.is_significant_mk_fdr).length,
+          raw_significant_mk_count: cells.filter((cell) => cell.is_significant_mk).length,
+          national_mean_slope: mean(mainSlopeField),
+          min_slope: Math.min(...cells.map((cell) => cell[mainSlopeField])),
+          max_slope: peak?.[mainSlopeField] ?? null,
+          max_slope_location: peak ? { latitude: peak.latitude, longitude: peak.longitude, division: peak.division } : null,
+        },
+        cells: selectedCells,
+      };
+    } catch (dataError) {
+      console.error('The bundled trend dataset could not be read:', dataError);
+      return { status: 'fallback', summary: { total_cells_evaluated: 34, fdr_significant_ols_count: 33, raw_significant_ols_count: 33, fdr_significant_mk_count: 33, raw_significant_mk_count: 33, national_mean_slope: 0.3452, max_slope: 0.4214, max_slope_location: { latitude: 24.5, longitude: 91.875, division: 'Sylhet' } }, cells: CANONICAL_34_CELLS };
+    }
   }
 }
+async function explainWithBundledData(question, context = {}) {
+  const normalized = question.toLowerCase();
+  const variables = [
+    { id: 'T2M', terms: ['temperature', 'warming', 'warmer', 'heat'] },
+    { id: 'PRECTOTCORR', terms: ['rain', 'rainfall', 'precipitation'] },
+    { id: 'GWETTOP', terms: ['soil moisture', 'soil wetness', 'wetness'] },
+    { id: 'ALLSKY_SFC_SW_DWN', terms: ['sunlight', 'sunshine', 'solar', 'radiation'] },
+  ];
+  const mentioned = variables.filter((item) => item.terms.some((term) => normalized.includes(term)));
+  const variable = mentioned[0] || variables.find((item) => item.id === context.variable) || variables[0];
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const month = months.findIndex((name) => normalized.includes(name.toLowerCase())) + 1 || context.month || 9;
+  const monthName = months[month - 1];
+  const division = Object.keys(DIVISION_CENTROIDS).find((name) => normalized.includes(name.toLowerCase()))
+    || (context.division && context.division !== 'All Bangladesh' ? context.division : null);
 
-/**
- * Natural language AI query
- */
-export async function analyzeNaturalQuery(question) {
+  if (/correlat|relationship|relat|coupl|linked|together/.test(normalized)) {
+    const second = mentioned[1] || variables.find((item) => item.id !== variable.id && item.id === 'GWETTOP');
+    const pair = `${variable.id} ↔ ${second.id}`;
+    const friendlyNames = { T2M: 'air temperature', PRECTOTCORR: 'precipitation', GWETTOP: 'soil moisture', ALLSKY_SFC_SW_DWN: 'solar energy' };
+    const sigFilter = context.sigFilter || 'fdr';
+    const samples = await getRelationshipSamples(pair, month, division || 'All Bangladesh');
+    const summary = summarizeRelationshipSamples(samples, sigFilter);
+    const fdrSummary = summarizeRelationshipSamples(samples, 'fdr');
+    if (summary) {
+      return {
+        status: 'bundled-data',
+        query_intent: { raw_question: question, intent: 'relationship', resolved_variable: variable.id, resolved_variables: [variable.id, second.id], resolved_division: division || 'All Bangladesh', variable_name: CANONICAL_VARIABLES.find((item) => item.id === variable.id)?.name, resolved_month: monthName, month_num: month, resolved_test_type: 'Pearson', resolved_significance_filter: sigFilter },
+        scientific_metrics: { total_cells_evaluated: summary.total, mean_pearson_r: summary.pearsonR, mean_spearman_rho: summary.spearmanRho, fdr_significant_pearson_count: fdrSummary.pearsonSignificant, selected_significant_pearson_count: summary.pearsonSignificant },
+        explanation: {
+          headline: `${friendlyNames[variable.id]} and ${friendlyNames[second.id]} move together with an average Pearson correlation of ${summary.pearsonR.toFixed(3)} in ${monthName}.`,
+          key_findings: [`Pearson correlation averaged ${summary.pearsonR.toFixed(3)} across ${summary.total} grid cells.`, `Spearman correlation averaged ${summary.spearmanRho.toFixed(3)}.`, `${summary.pearsonSignificant} cells ${sigFilter === 'raw' ? 'passed the uncorrected significance test' : sigFilter === 'all' ? 'are included in this view' : 'passed the corrected significance test'}.`],
+          cautionary_note: 'Correlation describes variables that change together; it does not show that one causes the other.',
+        },
+        locations: [],
+        methodological_caveats: ['Correlation does not establish causation. Multiple-testing correction is applied within the selected month and variable pair.'],
+      };
+    }
+  }
+
+  const variableMeta = CANONICAL_VARIABLES.find((item) => item.id === variable.id) || CANONICAL_VARIABLES[0];
+  const friendlyLabel = { T2M: 'Air temperature', PRECTOTCORR: 'Rainfall', GWETTOP: 'Soil moisture', ALLSKY_SFC_SW_DWN: 'Solar energy' }[variable.id] || variableMeta.name;
+  const testType = context.testType || 'OLS';
+  const sigFilter = context.sigFilter || 'fdr';
+  const result = await fetchSpatialTrends(variable.id, month, testType, 'all');
+  const locations = result.cells || [];
+  const summary = result.summary || {};
+  const scoped = division ? locations.filter((cell) => (cell.division ?? cell.nearest_division) === division) : locations;
+  const slopeFor = (cell) => Number(testType === 'Mann-Kendall' ? cell.sen_slope ?? cell.slope : cell.slope_per_decade ?? cell.slope ?? 0);
+  const mean = scoped.length ? scoped.reduce((sum, cell) => sum + slopeFor(cell), 0) / scoped.length : 0;
+  const peak = [...scoped].sort((a, b) => slopeFor(b) - slopeFor(a))[0];
+  const significanceKey = `is_significant_${testType === 'Mann-Kendall' ? 'mk' : 'ols'}${sigFilter === 'fdr' ? '_fdr' : ''}`;
+  const significant = sigFilter === 'all' ? scoped.length : scoped.filter((cell) => cell[significanceKey] ?? cell.is_sig).length;
+  const title = division || 'Bangladesh';
+  return {
+    status: 'bundled-data',
+    query_intent: { raw_question: question, intent: 'trend', resolved_variable: variable.id, resolved_division: division || 'All Bangladesh', variable_name: variableMeta.name, unit: variableMeta.rate_unit, resolved_month: monthName, month_num: month, resolved_test_type: testType, resolved_significance_filter: sigFilter },
+    scientific_metrics: {
+      total_cells_evaluated: scoped.length,
+      fdr_significant_ols_count: significant,
+      national_mean_slope: mean,
+      min_slope: scoped.length ? Math.min(...scoped.map(slopeFor)) : 0,
+      max_slope: peak ? slopeFor(peak) : 0,
+      max_slope_location: peak ? { latitude: peak.latitude, longitude: peak.longitude, division: peak.division ?? peak.nearest_division } : null,
+      ...(!division ? summary : {}),
+      selected_significant_count: significant,
+      selected_significance_filter: sigFilter,
+      selected_test_type: testType,
+    },
+    locations: scoped,
+    explanation: {
+      headline: `${friendlyLabel} in ${title} ${mean >= 0 ? 'increased' : 'decreased'} by ${Math.abs(mean).toFixed(4)} ${variableMeta.rate_unit} in ${monthName}.`,
+      key_findings: [`${significant} of ${scoped.length} mapped grid cells ${sigFilter === 'raw' ? 'passed the uncorrected significance test' : sigFilter === 'all' ? 'are included in this view' : 'passed the corrected significance test'}.`, peak ? `The largest increase was in ${peak.division ?? peak.nearest_division}: ${slopeFor(peak).toFixed(4)} ${variableMeta.rate_unit}.` : 'No measurements were found for this selection.', 'These estimates summarize NASA observations from 2001–2025.'],
+      cautionary_note: 'Benjamini–Hochberg correction is applied within each variable-month family. Nearby grid cells may not be statistically independent.',
+    },
+    methodological_caveats: ['These are observed linear trends, not forecasts. Multiple-testing correction is applied within the selected variable-month family.'],
+  };
+}
+
+export async function analyzeNaturalQuery(question, context = {}) {
+  const overrideFilters = {};
+  const relationshipPattern = /\b(correlat|relationship|relat|coupl|linked|together|between|versus|vs)\b/i;
+  const variablePatterns = [
+    /\b(temperature|warming|warmer|heat)\b/i,
+    /\b(rain|rainfall|precipitation)\b/i,
+    /\b(soil\s*(?:moisture|wetness)|wetness)\b/i,
+    /\b(sunlight|sunshine|solar|radiation)\b/i,
+  ];
+  const variableMentions = variablePatterns.filter((pattern) => pattern.test(question)).length;
+  const isRelationshipQuestion = relationshipPattern.test(question) || variableMentions > 1;
+  if (context.variable) overrideFilters.variable = context.variable;
+  if (context.month) overrideFilters.month = context.month;
+  if (context.testType && !isRelationshipQuestion) overrideFilters.test_type = context.testType;
+  if (context.sigFilter) overrideFilters.significance_filter = context.sigFilter;
+  if (context.division && context.division !== 'All Bangladesh') {
+    overrideFilters.location = { scope: 'division', division_name: context.division };
+  }
   try {
     const res = await fetch(`${API_BASE}/analyze`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question }),
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, override_filters: overrideFilters }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (err) {
-    console.warn("Using canonical fallback explanation:", err);
-    return {
-      status: "fallback",
-      query_intent: {
-        raw_question: question,
-        intent: "trend",
-        resolved_variable: "T2M",
-        variable_name: "Air Temperature at 2 Meters",
-        unit: "°C/decade",
-        resolved_month: "September",
-        month_num: 9,
-      },
-      scientific_metrics: {
-        total_cells_evaluated: 34,
-        fdr_significant_ols_count: 33,
-        national_mean_slope: 0.3452,
-        min_slope: 0.2640,
-        max_slope: 0.4214,
-        max_slope_location: { latitude: 24.5, longitude: 91.875, division: "Sylhet" },
-        formatted_significance_claim: "33 of 34 cells remained significant after Benjamini-Hochberg FDR correction at q < 0.05.",
-      },
-      locations: CANONICAL_34_CELLS,
-      explanation: {
-        headline: "Bangladesh Surface Air Temperature (T2M) Shows Widespread Significant Warming in September (+0.3452 °C/decade).",
-        key_findings: [
-          "33 of 34 cells remained significant after Benjamini-Hochberg FDR correction at q < 0.05.",
-          "National mean warming rate is +0.3452 °C/decade across the 2001–2025 observation window.",
-          "Sylhet division recorded the peak national warming slope of +0.4214 °C/decade (q_ols = 0.000121, q_mk = 0.000292).",
-          "Zero false discoveries were removed by FDR correction in this spatial family, demonstrating exceptionally robust statistical signal."
-        ],
-        cautionary_note: "FDR correction was performed within each variable-month spatial testing family (m=34), rather than across all spatial-month-variable hypotheses globally. Interpretation accounts for possible spatial dependence among neighboring grid cells.",
-      },
-      evidence_id: "ev_trend_T2M_m09_ols",
-      methodological_caveats: [
-        "FDR correction was performed within each variable-month spatial testing family (m=34), rather than across all spatial-month-variable hypotheses globally.",
-        "BH-FDR was applied to each spatial family; interpretation accounts for possible spatial dependence among neighboring grid cells."
-      ]
-    };
+    console.warn('Using question-specific bundled data:', err);
+    return explainWithBundledData(question, context);
   }
 }

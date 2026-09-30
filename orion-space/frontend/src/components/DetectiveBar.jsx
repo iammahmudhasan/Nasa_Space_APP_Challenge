@@ -1,73 +1,70 @@
-import React, { useState } from 'react';
-import { Search, Sparkles, Loader2, CornerDownLeft } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { ArrowUpRight, LoaderCircle, Send } from 'lucide-react';
 
 const SUGGESTIONS = [
-  "Which areas had significant warming in September?",
-  "Is temperature correlated with soil wetness in May?",
-  "Show climate profile and overview for Sylhet division",
-  "How does rainfall trend vary across months in Bangladesh?",
-  "Which month has the strongest warming rate?"
+  'Where is warming strongest?',
+  'How did rainfall change?',
+  'Do rain and soil moisture relate?',
 ];
 
-export default function DetectiveBar({ onQuerySubmit, isLoading }) {
-  const [inputVal, setInputVal] = useState("");
+export default function DetectiveBar({ onQuerySubmit, isLoading, error }) {
+  const [inputVal, setInputVal] = useState('');
+  const inputRef = useRef(null);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (inputVal.trim()) {
-      onQuerySubmit(inputVal.trim());
+  const submitQuestion = (question) => {
+    const cleanQuestion = question.trim();
+    if (!cleanQuestion || isLoading) return;
+    onQuerySubmit(cleanQuestion);
+    setInputVal('');
+    if (inputRef.current) inputRef.current.style.height = 'auto';
+  };
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    submitQuestion(inputVal);
+  };
+
+  const handleKeyDown = (event) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      submitQuestion(inputVal);
     }
   };
 
-  const handleChipClick = (suggestion) => {
-    setInputVal(suggestion);
-    onQuerySubmit(suggestion);
+  const handleInput = (event) => {
+    setInputVal(event.target.value);
+    event.target.style.height = 'auto';
+    event.target.style.height = `${Math.min(event.target.scrollHeight, 160)}px`;
   };
 
   return (
-    <div className="detective-bar-container">
-      <form className="detective-input-row" onSubmit={handleSubmit}>
-        <div className="search-icon-wrapper">
-          {isLoading ? (
-            <Loader2 size={20} className="animate-spin" />
-          ) : (
-            <Search size={20} />
-          )}
-        </div>
-
-        <input
-          type="text"
-          className="detective-input"
-          placeholder="Ask the Earth System Trend Detective... (e.g., 'Where is September warming most pronounced?')"
+    <div className="chat-composer-wrap">
+      <form className={`chat-composer ${isLoading ? 'is-busy' : ''}`} onSubmit={handleSubmit}>
+        <textarea
+          ref={inputRef}
+          className="question-input"
+          placeholder="Ask anything about Bangladesh’s climate…"
+          aria-label="Ask Orion about Bangladesh’s climate"
           value={inputVal}
-          onChange={(e) => setInputVal(e.target.value)}
+          onChange={handleInput}
+          onKeyDown={handleKeyDown}
+          rows={1}
           disabled={isLoading}
-          id="detective-query-input"
         />
-
-        <button
-          type="submit"
-          className="btn btn-primary"
-          disabled={isLoading || !inputVal.trim()}
-          id="detective-submit-btn"
-        >
-          <Sparkles size={16} />
-          <span>Investigate</span>
-          <CornerDownLeft size={14} style={{ opacity: 0.6 }} />
-        </button>
+        <div className="composer-bottom-row">
+          <span className="composer-hint"><kbd>Enter</kbd> to ask <span>·</span> <kbd>Shift + Enter</kbd> for a new line</span>
+          <span className="composer-data-note">34 mapped locations</span>
+          <button type="submit" className="question-submit" disabled={isLoading || !inputVal.trim()} aria-label={isLoading ? 'Orion is reading the data' : 'Send question'}>
+            {isLoading ? <LoaderCircle size={17} className="animate-spin" aria-hidden="true" /> : <Send size={17} aria-hidden="true" />}
+          </button>
+        </div>
       </form>
-
-      <div className="query-chips">
-        <span className="query-chip-label">Verified Inquiries:</span>
-        {SUGGESTIONS.map((s, idx) => (
-          <button
-            key={idx}
-            type="button"
-            className="chip-btn"
-            onClick={() => handleChipClick(s)}
-            disabled={isLoading}
-          >
-            {s}
+      {error && <div className="question-error" role="alert">{error}</div>}
+      <div className="question-examples" aria-label="Example questions">
+        <span className="examples-label">TRY ASKING</span>
+        {SUGGESTIONS.map((suggestion) => (
+          <button type="button" key={suggestion} onClick={() => submitQuestion(suggestion)} disabled={isLoading}>
+            {suggestion}<ArrowUpRight size={13} aria-hidden="true" />
           </button>
         ))}
       </div>
