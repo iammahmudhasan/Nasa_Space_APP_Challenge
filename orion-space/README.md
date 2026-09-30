@@ -2,20 +2,21 @@
 
 **NASA Space Apps Challenge 2026**  
 **Challenge Track:** Be An Earth System Trend Detective! (Advanced Earth Science)  
-**Investigative Focus:** Decadal Surface Air Temperature (`T2M`) Shifts over Bangladesh  
-**Data Provenance:** NASA Goddard Modeling and Assimilation Office (GMAO) MERRA-2 Assimilation Model via NASA POWER API  
+**Investigative Focus:** Decadal Multi-Variable Earth-System Shifts & Statistical Coupling over Bangladesh (2001–2025)  
+**Data Provenance:** NASA Goddard Modeling and Assimilation Office (GMAO) MERRA-2 & CERES/FLASHFlux via NASA POWER API  
+**Statistical Rigor:** Benjamini–Hochberg (1995) False Discovery Rate (FDR) Multiple-Testing Correction  
 
 ---
 
 ## 🔍 Scientific Challenge Overview
 
-Earth’s environmental system is an interconnected web where variables can fluctuate, rise, fall, and trend in divergent directions across different spatial and temporal scales. 
+Earth’s environmental system is an interconnected web where variables fluctuate, rise, fall, and trend in divergent directions across space and time. 
 
 The NASA challenge charges us with answering four fundamental scientific questions:
-1. **What is changing?** (Surface Air Temperature at 2m, `T2M`)
-2. **Where is it changing?** (Dhaka, Bangladesh: 23.8103°N, 90.4125°E — Phase 1 Point Analysis)
-3. **By how much is it changing?** (Rate of change in °C/year, °C/decade, and total 25-year cumulative change)
-4. **Is the change Statistically Significant?** (Tested via Parametric OLS Regression and Non-Parametric Mann-Kendall Trend Test with Sen's Slope Estimator)
+1. **What is changing?** (4 Key Earth-System Variables: Surface Air Temperature `T2M`, Precipitation `PRECTOTCORR`, Surface Soil Moisture `GWETTOP`, Downwelling Solar Radiation `ALLSKY_SFC_SW_DWN`)
+2. **Where is it changing?** (National 34-Grid Network covering all 8 administrative divisions of Bangladesh, filtered by geoBoundaries ADM0 Point-in-Polygon intersection)
+3. **By how much is it changing?** (Rate of change per decade, evaluated via OLS linear regression and non-parametric Mann-Kendall Sen's slope)
+4. **Is the change Statistically Significant?** (Rigorous hypothesis testing with Benjamini–Hochberg False Discovery Rate correction at $q < 0.05$ across 48 trend testing families and 72 bivariate relationship testing families)
 
 ---
 
@@ -24,97 +25,110 @@ The NASA challenge charges us with answering four fundamental scientific questio
 ```
 orion-space/
 │
-├── data/
-│   ├── dhaka_t2m_2001_2025.csv          <- 9,131 daily observations cached from NASA POWER
-│   ├── dhaka_t2m_trend_analysis.png     <- High-resolution scientific publication figure
-│   ├── bangladesh_t2m_regional_raw.json <- 104-point regional raw cache from NASA POWER
-│   └── bangladesh_t2m_spatial_trends.csv <- 104-point spatial trend statistics table
+├── api/                                  <- Production FastAPI Backend & Intelligence Router
+│   ├── main.py                           <- API application with /analyze, catalogs, and spatial endpoints
+│   └── README.md                         <- Official RESTful API specification & contract
 │
-├── notebooks/
-│   └── 01_nasa_temperature_analysis.ipynb <- Executable Jupyter Notebook (A-F Steps)
+├── data/                                 <- Canonical Analysis-Ready Datasets
+│   ├── bangladesh_multivariable_trends_fdr.csv      <- 1,632 spatial trend records with BH FDR q-values
+│   ├── bangladesh_variable_relationships_fdr.csv    <- 2,448 bivariate relationship records with FDR
+│   ├── bangladesh_precip_regional_raw.json          <- MERRA-2 precipitation raw cache
+│   ├── bangladesh_soil_moisture_regional_raw.json   <- MERRA-2 Land soil moisture raw cache
+│   └── bangladesh_solar_regional_raw.json           <- CERES solar irradiance raw cache
+│
+├── frontend/                             <- Interactive Web Dashboard (Vite + React + Leaflet)
+│   ├── public/
+│   │   ├── bangladesh_adm0.geojson       <- Official geoBoundaries Bangladesh ADM0 boundary
+│   │   └── nasa-logo.gif                 <- NASA meatball logo
+│   ├── src/
+│   │   ├── components/                   <- SpatialMap, CouplingMatrix, SeasonalCharts, AIExplainerCard
+│   │   ├── services/api.js               <- API client with offline canonical fallbacks
+│   │   ├── App.jsx                       <- Dashboard layout & state orchestrator
+│   │   └── index.css / App.css           <- NASA dark glassmorphism design system
+│   └── vite.config.js                    <- Proxy configured to port 8000
+│
+├── notebooks/                            <- Executable Scientific Notebooks
+│   ├── 01_nasa_temperature_analysis.ipynb           <- Phase 1: Dhaka T2M point analysis (2001-2025)
+│   └── 02_nasa_earth_system_multivariable_fdr.ipynb <- Phase 2: Multi-Variable 34-cell network with BH FDR
 │
 ├── scripts/
-│   ├── make_notebook.py                 <- Automated notebook builder
-│   └── execute_notebook.py              <- Execution and output capture runner
+│   ├── make_notebook.py                  <- Phase 1 notebook generator
+│   ├── make_phase2_notebook.py           <- Phase 2 notebook generator
+│   ├── execute_phase2_notebook.py        <- Headless notebook execution & plot embedding
+│   └── test_api_endpoints.py             <- 11-test automated API test suite
 │
-├── src/
-│   ├── __init__.py
-│   ├── data_loader.py                   <- NASA POWER API ingestion & data cleaning
-│   ├── trend_analysis.py                <- OLS, Mann-Kendall, Sen's Slope & reporting
-│   └── spatial_analysis.py              <- Regional grid generation & spatial trend pipeline
+├── src/                                  <- Scientific Core & Intelligence Layer
+│   ├── multivariable_data_loader.py      <- NASA POWER API multi-variable fetcher
+│   ├── multivariable_analysis.py         <- 34-cell OLS & Mann-Kendall trend computation
+│   ├── relationship_analysis.py          <- 6-pair bivariate Pearson & Spearman correlation
+│   ├── multiple_testing.py               <- Benjamini-Hochberg FDR implementation
+│   ├── query_models.py                   <- Pydantic v2 discriminated union query schemas
+│   ├── query_parser.py                   <- Rule-based natural language parser
+│   ├── query_retriever.py                <- Deterministic scientific evidence retriever
+│   └── llm_explainer.py                  <- Evidence-grounded LLM layer with strict guardrails
 │
-├── requirements.txt                     <- Pinned scientific dependencies
-└── README.md                            <- Scientific documentation & methodology
+├── requirements.txt                      <- Pinned Python scientific & backend dependencies
+└── README.md                             <- Scientific documentation & challenge report
 ```
 
 ---
 
-## 🔬 Phase 1 Scientific Findings (Dhaka, Bangladesh: 2001–2025)
+## 🔬 Scientific Findings Summary
 
-### 1. Annual Mean Analysis (25-Year Aggregate)
+### Phase 1: Point Trend Analysis (Dhaka, 2001–2025)
+- **Annual Aggregate:** Inter-annual noise dominates on an annual scale ($p = 0.757$, not significant).
+- **Seasonal Deconstruction:** Concentrated late-monsoon / post-monsoon warming in July ($+0.167^\circ\text{C}$/dec, $p=0.021$), September ($+0.361^\circ\text{C}$/dec, $p<0.001$), and October ($+0.452^\circ\text{C}$/dec, $p=0.006$).
 
-| Metric | Parametric (OLS) | Non-Parametric (Mann-Kendall / Sen's) |
-| :--- | :--- | :--- |
-| **Trend Direction** | Increasing | Increasing |
-| **Slope** | `+0.0026 °C / year` (`+0.026 °C / decade`) | `+0.0036 °C / year` (`+0.036 °C / decade`) |
-| **Total Cumulative Change** | `+0.06 °C` | `+0.09 °C` |
-| **Percentage Change** | `+0.24 %` | `+0.35 %` |
-| **Model Fit ($R^2$)** | `0.0042` | — |
-| **Test Statistic** | $t = 0.313$ | $S = +30, Z = +0.40$ |
-| **p-value** | **`p = 0.7571`** | **`p = 0.6913`** |
-| **Statistical Significance ($\alpha=0.05$)** | **Not Significant ($p \ge 0.05$)** | **Not Significant ($p \ge 0.05$)** |
-
-> **Scientific Observation:** On an annual aggregate scale, inter-annual temperature variance dominates, and the 25-year trend does not meet the threshold of statistical significance ($\alpha = 0.05$).
-
----
-
-### 2. Seasonal Deconstruction Analysis
-
-When decomposing the daily time series into monthly subsets, distinct intra-annual signals are observed:
-
-| Month | Decadal Rate (°C/decade) | 25-Year Total Change (°C) | p-value | Statistically Significant? |
-| :--- | :---: | :---: | :---: | :---: |
-| **January** | $+0.098$ | $+0.24$ | $0.7437$ | No |
-| **February** | $-0.305$ | $-0.76$ | $0.3589$ | No |
-| **March** | $-0.235$ | $-0.59$ | $0.3695$ | No |
-| **April** | $-0.155$ | $-0.39$ | $0.6339$ | No |
-| **May** | $-0.353$ | $-0.88$ | $0.1274$ | No |
-| **June** | $-0.024$ | $-0.06$ | $0.8602$ | No |
-| **July** | **$+0.167$** | **$+0.42$** | **$0.0207$** | **YES ✅ ($p < 0.05$)** |
-| **August** | $+0.075$ | $+0.19$ | $0.3305$ | No |
-| **September** | **$+0.361$** | **$+0.90$** | **$< 0.0001$** | **YES ✅ ($p < 0.001$)** |
-| **October** | **$+0.452$** | **$+1.13$** | **$0.0062$** | **YES ✅ ($p < 0.01$)** |
-| **November** | $+0.195$ | $+0.49$ | $0.3347$ | No |
-| **December** | $+0.016$ | $+0.04$ | $0.9504$ | No |
-
-### 🎯 Climatological Interpretation:
-1. **Annual Averaging Effect:** Neutral to slight negative slopes in February–May offset positive shifts in late months, dampening the annual average slope ($p = 0.757$).
-2. **Post-Monsoon Warming:** Statistically significant positive temperature trends are concentrated in July ($+0.167^\circ\text{C}$/dec, $p=0.021$), September ($+0.361^\circ\text{C}$/dec, $p<0.001$), and October ($+0.452^\circ\text{C}$/dec, $p=0.006$), representing a total increase of $+0.90^\circ\text{C}$ to $+1.13^\circ\text{C}$ across the 2001–2025 observation window. Specific extreme event indices (such as TX90p or heat wave duration) would require separate tailored extreme indices calculation.
+### Phase 2: Multi-Variable Grid & FDR Significance (34 Grid Cells, National)
+1. **Ubiquitous September Warming:** Across all 34 mainland cells, national mean warming in September reached $+0.3452^\circ\text{C}/\text{decade}$.
+2. **National Extreme Warming Peak:** Sylhet Division (`24.5°N, 91.875°E`) experienced the fastest rate of change:
+   - **OLS Slope:** $+0.4214^\circ\text{C}/\text{decade}$ ($R^2 = 0.5130$, $p = 5.7 \times 10^{-5}$, $q_{\text{FDR}} = 0.000121$)
+   - **Sen's Median Slope:** $+0.4063^\circ\text{C}/\text{decade}$ ($p_{\text{MK}} = 7.8 \times 10^{-5}$, $q_{\text{MK, FDR}} = 0.000292$)
+3. **FDR Multiple-Testing Control:** **33 of 34 cells** remained statistically significant after Benjamini–Hochberg FDR correction at $q < 0.05$ (maximum $q = 0.017$). Zero false discoveries were screened for September T2M, confirming an unequivocal climate signal.
+4. **Earth-System Coupling & Feedbacks:**
+   - `T2M ↔ GWETTOP` (May Pre-Monsoon): Strong negative correlation (mean Pearson $r = -0.485$, 28 of 34 cells FDR significant), demonstrating land-atmosphere drying feedbacks prior to monsoon onset.
+   - `PRECTOTCORR ↔ GWETTOP`: Strong positive infiltration coupling (mean Pearson $r = +0.642$, 34 of 34 cells FDR significant).
+   - `PRECTOTCORR ↔ ALLSKY_SFC_SW_DWN`: Cloud albedo shading effect (mean Pearson $r = -0.590$).
 
 ---
 
-## 🚀 How to Run the Pipeline
+## 🚀 How to Run the System
 
 ### 1. Environment Setup
 ```bash
-# Activate virtual environment
+# Clone the repository
+git clone https://github.com/iammahmudhasan/Nasa_Space_APP_Challenge.git
+cd Nasa_Space_APP_Challenge
+
+# Activate Python virtual environment
 .\.venv\Scripts\Activate.ps1   # (Windows)
 # or source .venv/bin/activate  # (Linux/macOS)
 
-# Install dependencies
+# Install backend dependencies
 pip install -r requirements.txt
 ```
 
-### 2. Run the Notebook
-Launch Jupyter to explore `01_nasa_temperature_analysis.ipynb`:
+### 2. Launch the FastAPI Intelligence Backend
 ```bash
-jupyter notebook notebooks/01_nasa_temperature_analysis.ipynb
+cd orion-space
+python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
 ```
+- API Metadata & Docs: `http://127.0.0.1:8000/docs`
 
----
+### 3. Launch the Interactive Web Dashboard
+```bash
+cd orion-space/frontend
+npm install
+npm run dev
+```
+- Open your browser at: `http://localhost:3000/`
 
-## 🗺️ Roadmap: Phase 2 (Regional Grid Analysis)
-In Phase 2, we will expand this verified single-point engine to a spatial grid covering all 8 administrative divisions of Bangladesh ($20.5^\circ\text{N} - 26.5^\circ\text{N}, 88.0^\circ\text{E} - 92.8^\circ\text{E}$) to map:
-- Spatial distribution of warming rates
-- Division-by-division statistical significance heatmaps
-- Divergent regional trends (Coastal Bay of Bengal vs. Northern Himalayan Foothills)
+### 4. Explore the Scientific Notebooks
+```bash
+# Phase 1: Single-Point Analysis (Dhaka)
+jupyter notebook orion-space/notebooks/01_nasa_temperature_analysis.ipynb
+
+# Phase 2: Multi-Variable Earth-System Dynamics & BH-FDR Multiple Testing
+jupyter notebook orion-space/notebooks/02_nasa_earth_system_multivariable_fdr.ipynb
+```
+*(Both notebooks contain fully pre-computed figures, tables, and execution outputs embedded directly in the files for immediate offline review.)*
