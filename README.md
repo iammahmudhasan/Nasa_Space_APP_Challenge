@@ -6,81 +6,128 @@
 </p>
 
 ### **Challenge:** *Be An Earth System Trend Detective!*  
-**Category:** Advanced Earth Science, Climatology & Software Intelligence  
-**Focus Variable:** Surface Air Temperature at 2 Meters (`T2M`)  
-**Data Provenance:** NASA Goddard Modeling and Assimilation Office (GMAO) MERRA-2 via NASA POWER API  
-**Investigation Window:** 2001-01-01 to 2025-12-31 (25 Continuous Years, 9,131 Daily Observations)  
+**Category:** Advanced Earth Science, Climatology, Statistical Multiple Testing & AI Intelligence  
+**Data Provenance:** NASA Goddard Modeling and Assimilation Office (GMAO) MERRA-2 & CERES/FLASHFlux via NASA POWER API  
+**Investigation Window:** 2001-01-01 to 2025-12-31 (25 Continuous Years)  
+**Spatial Network:** 34 Mainland Bangladesh Grid Cells (geoBoundaries ADM0 Point-in-Polygon Filtered)  
+**Statistical Rigor:** Benjamini–Hochberg (1995) False Discovery Rate (FDR) Multiple-Testing Correction  
 
 ---
 
-## 🎯 The Detective's Question
-> *"How has surface air temperature changed over Bangladesh over the long term, and are the observed trends statistically significant under formal hypothesis testing?"*
+## 🎯 The Detective Question
+> *"How are interconnected Earth-system variables (surface air temperature, precipitation, soil moisture, and solar radiation) co-evolving across Bangladesh over 2001–2025, which spatial warming and drying trends remain robustly significant after Benjamini–Hochberg False Discovery Rate (FDR) correction, and what physical feedbacks link these variables?"*
 
 ---
 
-## 🚀 Key Phase 1 Findings (Dhaka Baseline)
+## 🔬 Core Scientific Findings Summary
 
-1. **Annual Aggregated Analysis:**
-   - 25-Year Annual Mean Slope: **`+0.0026 °C / year`** (`+0.026 °C / decade`)
-   - Ordinary Least Squares $p$-value: **`0.7571`** (Mann-Kendall: **`0.6913`**)
-   - **Verdict:** On an annual aggregated basis, the trend is **not statistically significant** ($\alpha = 0.05$). This illustrates why formal statistical testing is essential to distinguish systematic shifts from background inter-annual variance.
+### 1. Phase 1: Dhaka Single-Point Baseline (2001–2025)
+- **Annual Aggregate:** Inter-annual weather noise dominates on an annual aggregate scale ($p = 0.757$, not statistically significant).
+- **Seasonal Deconstruction:** Concentrated, statistically significant warming in late-monsoon / post-monsoon months:
+  - **July:** `+0.167 °C/decade` ($p = 0.0207$) — **Significant ✅ ($p < 0.05$)**
+  - **September:** `+0.361 °C/decade` ($p < 0.0001$) — **Significant ✅ ($p < 0.001$)**
+  - **October:** `+0.452 °C/decade` ($p = 0.0062$) — **Significant ✅ ($p < 0.01$, +1.13°C Total)**
 
-2. **Seasonal Deconstruction Findings:**
-   - When decomposing the 25-year daily record into monthly averages, distinct seasonal differences emerge:
-   - **July:** **`+0.167 °C/decade`** ($p = 0.0207$) — **Statistically Significant ✅ ($p < 0.05$)**
-   - **September:** **`+0.361 °C/decade`** ($p < 0.0001$) — **Statistically Significant ✅ ($p < 0.001$)**
-   - **October:** **`+0.452 °C/decade`** ($p = 0.0062$) — **Statistically Significant ✅ ($p < 0.01$, +1.13°C Total Shift)**
-   - **Conclusion:** Statistically significant warming is observed specifically in late-monsoon and post-monsoon months (July, September, October), whereas other months exhibit no statistically significant long-term trend, moderating the annual average.
+### 2. Phase 2: National Multi-Variable 34-Grid Network & BH-FDR Correction
+- **Ubiquitous September Warming:** Across all 34 mainland grid cells, the national mean warming rate reached **`+0.3452 °C/decade`**.
+- **National Extreme Warming Peak:** Sylhet Division (`24.5°N, 91.875°E`) recorded the fastest warming slope in Bangladesh:
+  - **OLS Linear Slope:** **`+0.4214 °C/decade`** ($R^2 = 0.5130$, $p = 5.7 \times 10^{-5}$, $q_{\text{FDR}} = 0.000121$)
+  - **Sen's Median Slope:** **`+0.4063 °C/decade`** ($p_{\text{MK}} = 7.8 \times 10^{-5}$, $q_{\text{MK, FDR}} = 0.000292$)
+- **Benjamini–Hochberg FDR Multiple-Testing Control:**
+  - Tested across 48 spatial trend families ($m = 34$ hypotheses per family).
+  - For September T2M: **33 of 34 cells** remained statistically significant after Benjamini–Hochberg FDR correction at $q < 0.05$ (Maximum $q = 0.017$). Zero false discoveries were screened, confirming an unequivocal climate signal.
+- **Earth-System Bivariate Coupling (6 Pairs, 72 Families):**
+  - `T2M ↔ GWETTOP` (May Pre-Monsoon): Strong negative correlation (mean Pearson $r = -0.485$, 28 of 34 cells FDR significant), demonstrating land-atmosphere desiccation and heat-drought feedback before monsoon onset.
+  - `PRECTOTCORR ↔ GWETTOP`: Direct infiltration and soil moisture recharge (mean Pearson $r = +0.642$, 34 of 34 cells FDR significant).
+  - `PRECTOTCORR ↔ ALLSKY_SFC_SW_DWN`: Cloud albedo shading effect (mean Pearson $r = -0.590$).
 
 ---
 
 ## 📁 Repository Structure
 
 ```
-.
-├── Nasa-logo.gif
-├── README.md
-├── requirements.txt
+Nasa_Space_APP_Challenge/
+├── README.md                             <- Master challenge overview & scientific documentation
+├── requirements.txt                      <- Global Python dependencies
+├── data/                                 <- Canonical multi-variable & FDR datasets
+│   ├── bangladesh_multivariable_trends_fdr.csv      <- 1,632 trend records with BH FDR q-values
+│   ├── bangladesh_variable_relationships_fdr.csv    <- 2,448 bivariate relationship records with FDR
+│   ├── bangladesh_precip_regional_raw.json          <- MERRA-2 precipitation raw cache
+│   ├── bangladesh_soil_moisture_regional_raw.json   <- MERRA-2 Land soil moisture raw cache
+│   └── bangladesh_solar_regional_raw.json           <- CERES solar irradiance raw cache
+│
 └── orion-space/
-    ├── README.md
-    ├── requirements.txt
-    ├── data/
-    │   ├── dhaka_t2m_2001_2025.csv          <- 9,131 daily records cached from NASA POWER
-    │   └── dhaka_t2m_trend_analysis.png     <- High-resolution scientific publication figure
-    ├── notebooks/
-    │   └── 01_nasa_temperature_analysis.ipynb <- Complete executed Jupyter Notebook
-    ├── scripts/
-    │   ├── make_notebook.py                 <- Notebook builder
-    │   └── execute_notebook.py              <- Output capture runner
-    └── src/
-        ├── __init__.py
-        ├── data_loader.py                   <- NASA POWER API data fetching & cleaning
-        └── trend_analysis.py                <- Parametric (OLS) & Non-Parametric (Mann-Kendall, Sen's) engine
+    ├── api/                              <- Production FastAPI Intelligence Backend
+    │   ├── main.py                       <- Endpoints: /analyze, /trends/spatial, /relationships, catalogs
+    │   └── README.md                     <- RESTful API contract & JSON schemas
+    │
+    ├── frontend/                         <- Interactive Web Dashboard (Vite + React + Leaflet)
+    │   ├── public/
+    │   │   ├── bangladesh_adm0.geojson   <- Official geoBoundaries Bangladesh boundary
+    │   │   └── nasa-logo.gif             <- NASA meatball logo
+    │   ├── src/                          <- SpatialMap, CouplingMatrix, SeasonalCharts, AIExplainerCard
+    │   └── index.css / App.css           <- NASA dark space glassmorphism design system
+    │
+    ├── notebooks/                        <- Executable Scientific Notebooks (Pre-computed Figures)
+    │   ├── 01_nasa_temperature_analysis.ipynb           <- Phase 1: Dhaka T2M point analysis (2001-2025)
+    │   └── 02_nasa_earth_system_multivariable_fdr.ipynb <- Phase 2: National 34-cell network with BH FDR
+    │
+    ├── scripts/                          <- Automation & Verification Test Suites
+    │   ├── make_notebook.py              <- Phase 1 notebook generator
+    │   ├── make_phase2_notebook.py       <- Phase 2 notebook generator
+    │   ├── execute_phase2_notebook.py    <- Automated headless executor with embedded figures
+    │   └── test_api_endpoints.py         <- 11-test automated API test suite (100% assertions)
+    │
+    └── src/                              <- Scientific Core & Intelligence Layer
+        ├── multivariable_data_loader.py  <- NASA POWER multi-variable fetcher & cache
+        ├── multivariable_analysis.py     <- 34-cell OLS & Mann-Kendall trend computation
+        ├── relationship_analysis.py      <- 6-pair bivariate Pearson & Spearman correlation
+        ├── multiple_testing.py           <- Benjamini-Hochberg FDR implementation
+        ├── query_models.py               <- Pydantic v2 discriminated union query schemas
+        ├── query_parser.py               <- Rule-based natural language parser
+        ├── query_retriever.py            <- Deterministic scientific evidence retriever
+        └── llm_explainer.py              <- Evidence-grounded LLM layer with strict guardrails
 ```
 
 ---
 
-## 💻 Quick Start
+## 💻 Quick Start & Execution
 
+### 1. Setup Virtual Environment
 ```bash
 # Clone the repository
 git clone https://github.com/iammahmudhasan/Nasa_Space_APP_Challenge.git
 cd Nasa_Space_APP_Challenge
 
-# Setup virtual environment
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\Activate.ps1
+# Activate virtual environment
+.\.venv\Scripts\Activate.ps1   # (Windows)
+# or source .venv/bin/activate  # (Linux/macOS)
 
 # Install dependencies
 pip install -r requirements.txt
-
-# Run the notebook
-jupyter notebook orion-space/notebooks/01_nasa_temperature_analysis.ipynb
 ```
 
----
+### 2. Launch FastAPI Intelligence Backend
+```bash
+cd orion-space
+python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+```
+- Interactive OpenAPI Docs: `http://127.0.0.1:8000/docs`
 
-## 🗺️ Roadmap
-- **Phase 1 (Complete):** Core Scientific Pipeline, Dhaka representative point validation, OLS & Mann-Kendall significance engine.
-- **Phase 2 (Upcoming):** Spatial grid expansion across all 8 administrative divisions of Bangladesh.
-- **Phase 3:** Multi-variable integration (Precipitation `PRECTOTCORR`, Soil Moisture `GWETTOP`, Surface Solar Radiation `ALLSKY_SFC_SW_DWN`).
+### 3. Launch Interactive Web Dashboard
+```bash
+cd orion-space/frontend
+npm install
+npm run dev
+```
+- Dashboard URL: `http://localhost:3000/`
+
+### 4. Explore Scientific Jupyter Notebooks
+```bash
+# Phase 1 Notebook: Dhaka Baseline Analysis
+jupyter notebook orion-space/notebooks/01_nasa_temperature_analysis.ipynb
+
+# Phase 2 Notebook: Multi-Variable Earth-System Dynamics & BH FDR Correction
+jupyter notebook orion-space/notebooks/02_nasa_earth_system_multivariable_fdr.ipynb
+```
+*(Both notebooks contain fully pre-computed figures, tables, and execution outputs embedded directly in the files for immediate offline review.)*
