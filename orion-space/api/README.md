@@ -232,13 +232,13 @@ Returns the 34 mainland Bangladesh grid coordinates with nearest administrative 
       "latitude": 24.5,
       "longitude": 91.875,
       "nearest_division": "Sylhet",
-      "rate_per_decade": 0.4211,
-      "p_value_ols": 0.000008,
-      "p_value_ols_formatted": "p < 1e-5",
-      "q_value_ols": 0.000008,
-      "p_value_mk": 0.000021,
-      "q_value_mk": 0.000045,
-      "sen_slope_per_decade": 0.4180,
+      "rate_per_decade": 0.4214,
+      "p_value_ols": 0.000057,
+      "p_value_ols_formatted": "0.000057",
+      "q_value_ols": 0.000121,
+      "p_value_mk": 0.000078,
+      "q_value_mk": 0.000292,
+      "sen_slope_per_decade": 0.4063,
       "is_significant_ols_fdr": true,
       "is_significant_mk_fdr": true,
       "trend_direction": "Increasing"
@@ -250,9 +250,9 @@ Returns the 34 mainland Bangladesh grid coordinates with nearest administrative 
       "rate_per_decade": 0.3402,
       "p_value_ols": 0.000048,
       "p_value_ols_formatted": "0.000048",
-      "q_value_ols": 0.000054,
-      "p_value_mk": 0.000321,
-      "q_value_mk": 0.000412,
+      "q_value_ols": 0.000109,
+      "p_value_mk": 0.000184,
+      "q_value_mk": 0.000368,
       "sen_slope_per_decade": 0.3563,
       "is_significant_ols_fdr": true,
       "is_significant_mk_fdr": true,
@@ -368,9 +368,10 @@ export interface AnalysisResponse {
     total_inland_cells: number;
     warming_cells_count: number;
     cooling_cells_count: number;
-    significant_cells_ols: number;
-    significant_cells_mk: number;
-    percentage_significant_ols: number;
+    significant_cells_ols_fdr: number;
+    significant_cells_mk_fdr: number;
+    raw_significant_cells_ols: number;
+    percentage_significant_fdr: number;
     national_mean_rate: number;
     min_rate: number;
     max_rate: number;
@@ -411,7 +412,7 @@ export interface AnalysisResponse {
 
 ---
 
-## 6. Anti-Hallucination LLM Prompting Standard
+## 6. Evidence-Grounded LLM Guardrails Standard
 
 When generating the natural-language explanation, the backend will feed the retrieved deterministic JSON payload into the LLM with the following system prompt constraint:
 
@@ -420,7 +421,8 @@ You are the Orion Space Earth-System Scientific Explainer.
 You must adhere strictly to the following scientific rules:
 1. ONLY quote numbers, rates, and p-values that are explicitly present in the verified JSON packet.
 2. NEVER invent, extrapolate, or estimate numbers not in the input.
-3. Distinguish between OLS and Mann-Kendall significance when reporting findings.
+3. Distinguish between raw p-values and Benjamini-Hochberg FDR q-values.
 4. Report statistical co-occurrence and correlation without making unfounded causal claims.
 5. If asked about a variable or month not in the dataset, state that empirical records are unavailable.
+6. When reporting significance, use the verified phrasing: "X of 34 cells remained significant after Benjamini-Hochberg FDR correction at q < 0.05."
 ```

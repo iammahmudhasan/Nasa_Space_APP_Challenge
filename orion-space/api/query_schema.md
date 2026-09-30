@@ -3,7 +3,7 @@
 **Project:** Orion Space — NASA Earth System Trend Detective (NASA Space Apps Challenge 2026)  
 **Document:** Step 9 Query Engine Architecture & Contract Specification  
 **Status:** PRODUCTION SPECIFICATION  
-**Core Rule:** **Ground Truth First** — Zero LLM statistical hallucination. The LLM never reads raw CSV files directly, never calculates metrics, and never performs statistical tests.
+**Core Rule:** **Ground Truth First** — Evidence-Grounded Explanation Architecture. The LLM never reads raw CSV files directly, never calculates metrics, and never performs statistical tests.
 
 ---
 
@@ -68,112 +68,55 @@
 
 ---
 
-## 3. Structured Query Schema (Parser Output Contract)
+## 3. Structured Query Schema (Intent-Polymorphic Pydantic Models)
 
-When the **Query Parser** analyzes user input, it produces a validated, deterministic JSON object adhering to this schema:
+Rather than a single flat schema with loose optional fields, Orion Space enforces **intent-dependent validation** via Pydantic v2 discriminated models in [`orion-space/src/query_models.py`](file:///c:/Users/mah54/Desktop/Nasa_Space_APP_Challenge/orion-space/src/query_models.py):
 
-```json
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "OrionStructuredQuery",
-  "type": "object",
-  "properties": {
-    "intent": {
-      "type": "string",
-      "enum": ["trend", "relationship", "location_profile", "seasonal_cycle", "comparative_extremes"],
-      "description": "Primary analytical intent identified from user prompt."
-    },
-    "variable": {
-      "type": "string",
-      "enum": ["T2M", "PRECTOTCORR", "GWETTOP", "ALLSKY_SFC_SW_DWN"],
-      "description": "Primary NASA Earth-system variable."
-    },
-    "secondary_variable": {
-      "type": ["string", "null"],
-      "enum": ["T2M", "PRECTOTCORR", "GWETTOP", "ALLSKY_SFC_SW_DWN", null],
-      "default": null,
-      "description": "Secondary variable for cross-variable relationship queries."
-    },
-    "month": {
-      "type": ["integer", "null"],
-      "minimum": 1,
-      "maximum": 12,
-      "description": "Calendar month (1 = Jan, ..., 12 = Dec). Null if analyzing entire seasonal cycle."
-    },
-    "location": {
-      "type": "object",
-      "properties": {
-        "scope": {
-          "type": "string",
-          "enum": ["national", "division", "coordinate"],
-          "default": "national"
-        },
-        "division_name": {
-          "type": ["string", "null"],
-          "enum": ["Dhaka", "Chattogram", "Sylhet", "Rajshahi", "Khulna", "Barishal", "Rangpur", "Mymensingh", null],
-          "default": null
-        },
-        "latitude": {
-          "type": ["number", "null"],
-          "minimum": 20.5,
-          "maximum": 26.5,
-          "default": null
-        },
-        "longitude": {
-          "type": ["number", "null"],
-          "minimum": 88.0,
-          "maximum": 92.8,
-          "default": null
-        }
-      },
-      "required": ["scope"]
-    },
-    "direction": {
-      "type": "string",
-      "enum": ["increasing", "decreasing", "all"],
-      "default": "all",
-      "description": "Filter by trend direction."
-    },
-    "significance_filter": {
-      "type": "string",
-      "enum": ["fdr", "raw", "all"],
-      "default": "fdr",
-      "description": "Statistical significance filter. Defaults strictly to BH-corrected FDR."
-    },
-    "test_type": {
-      "type": "string",
-      "enum": ["OLS", "Mann-Kendall", "Pearson", "Spearman", "both"],
-      "default": "OLS",
-      "description": "Statistical test to evaluate for trends or relationships."
-    },
-    "alpha": {
-      "type": "number",
-      "minimum": 0.001,
-      "maximum": 0.1,
-      "default": 0.05,
-      "description": "Significance threshold (alpha or q-threshold)."
-    }
-  },
-  "required": ["intent", "variable", "significance_filter", "test_type", "alpha"]
-}
-```
+### 3.1. Intent Models Specification
+1. **`TrendQuery` (`intent="trend"`):**
+   - Required: `variable`, `month` (1..12).
+   - Optional: `location` (default: national), `direction` (default: all), `test_type` (OLS/Mann-Kendall/both), `significance_filter` (default: fdr), `alpha` (default: 0.05).
+2. **`RelationshipQuery` (`intent="relationship"`):**
+   - Required: `variable`, `secondary_variable` (must be different from `variable`), `month` (1..12).
+   - Optional: `location` (default: national), `test_type` (Pearson/Spearman/both), `significance_filter` (default: fdr), `alpha` (default: 0.05).
+3. **`LocationProfileQuery` (`intent="location_profile"`):**
+   - Required: `location` with scope `division` (and `division_name`) OR scope `coordinate` (and `latitude`, `longitude`). Scope cannot be national.
+   - Optional: `variable`, `month`, `significance_filter`, `alpha`.
+4. **`SeasonalCycleQuery` (`intent="seasonal_cycle"`):**
+   - Required: `variable`.
+   - Optional: `location` (default: national), `test_type`, `significance_filter`, `alpha`.
+5. **`ComparativeExtremesQuery` (`intent="comparative_extremes"`):**
+   - Required: `variable`.
+   - Optional: `metric` (max_rate, min_rate, max_warming, max_cooling, highest_significance), `location`, `alpha`.
 
-### Example Structured Query (September T2M Warming)
+### Example Valid Trend Query:
 ```json
 {
   "intent": "trend",
   "variable": "T2M",
-  "secondary_variable": null,
   "month": 9,
   "location": {
-    "scope": "national",
-    "division_name": null,
-    "latitude": null,
-    "longitude": null
+    "scope": "national"
   },
   "direction": "increasing",
   "significance_filter": "fdr",
   "test_type": "OLS",
+  "alpha": 0.05
+}
+```
+
+### Example Valid Relationship Query:
+```json
+{
+  "intent": "relationship",
+  "variable": "T2M",
+  "secondary_variable": "GWETTOP",
+  "month": 5,
+  "location": {
+    "scope": "national"
+  },
+  "significance_filter": "fdr",
+  "test_type": "Pearson",
   "alpha": 0.05
 }
 ```
@@ -189,7 +132,7 @@ The **Scientific Data Retriever** executes purely deterministic relational looku
 ### Filtering Logic
 1. Filter by `variable == query.variable` and `month_num == query.month` (extracts the exact family of 34 spatial tests).
 2. If `location.scope == "division"`: filter cells where nearest division matches `query.location.division_name`.
-3. If `location.scope == "coordinate"`: find nearest grid cell using Euclidean or Haversine distance.
+3. If `location.scope == "coordinate"`: find nearest grid cell using Euclidean distance.
 4. If `direction == "increasing"`: filter `slope_per_decade > 0`.
 5. If `direction == "decreasing"`: filter `slope_per_decade < 0`.
 6. If `significance_filter == "fdr"`:
@@ -209,7 +152,7 @@ The **Scientific Data Retriever** executes purely deterministic relational looku
 
 ## 5. Scientific Evidence Payload (Retriever Output Contract)
 
-This structured evidence is produced deterministically and served to both the frontend and the LLM explanation generator:
+This structured evidence is produced deterministically from the canonical FDR CSV and served to both the frontend and the LLM explanation generator:
 
 ```json
 {
@@ -237,12 +180,12 @@ This structured evidence is produced deterministically and served to both the fr
     "raw_significant_ols_count": 33,
     "fdr_significant_ols_count": 33,
     "raw_significant_mk_count": 34,
-    "fdr_significant_mk_count": 33,
+    "fdr_significant_mk_count": 34,
     "raw_discoveries_removed_after_fdr": 0,
     "national_mean_slope": 0.3452,
     "min_slope": 0.2017,
-    "max_slope": 0.4211,
-    "min_slope_location": {"lat": 22.0, "lon": 89.375, "division": "Khulna"},
+    "max_slope": 0.4214,
+    "min_slope_location": {"lat": 21.5, "lon": 92.5, "division": "Chattogram"},
     "max_slope_location": {"lat": 24.5, "lon": 91.875, "division": "Sylhet"},
     "formatted_significance_claim": "33 of 34 cells remained significant after Benjamini-Hochberg FDR correction at q < 0.05."
   },
@@ -252,11 +195,13 @@ This structured evidence is produced deterministically and served to both the fr
       "latitude": 24.5,
       "longitude": 91.875,
       "nearest_division": "Sylhet",
-      "slope_per_decade": 0.4211,
-      "p_value_ols_formatted": "p < 1e-6",
-      "q_value_ols": 0.000008,
-      "p_value_mk_formatted": "0.000021",
-      "q_value_mk": 0.000045,
+      "slope_per_decade": 0.4214,
+      "p_value_ols_formatted": "0.000057",
+      "q_value_ols": 0.000121,
+      "p_value_mk_formatted": "0.000078",
+      "q_value_mk": 0.000292,
+      "sen_slope_per_decade": 0.4063,
+      "r_squared": 0.5130,
       "is_significant_ols_fdr": true,
       "is_significant_mk_fdr": true,
       "trend_direction": "Increasing"
