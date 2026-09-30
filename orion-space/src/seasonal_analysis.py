@@ -178,16 +178,18 @@ def compute_seasonal_spatial_trends(
             ols_res = compute_linear_trend(years, temps)
             slope_yr = ols_res["slope"]
             slope_dec = slope_yr * 10.0
-            p_val = ols_res["p_value"]
+            p_val_ols = ols_res["p_value"]
             
             # 2. Non-Parametric Mann-Kendall & Sen's Slope
             mk_res = mann_kendall_test(temps)
+            p_val_mk = mk_res["p_value"]
             sen_slope_yr = mk_res["sens_slope"]
             sen_slope_dec = sen_slope_yr * 10.0
             
-            # 3. Categorization & Significance
+            # 3. Categorization & Significance (both OLS & Mann-Kendall)
             direction = "Increasing" if slope_dec > 0 else ("Decreasing" if slope_dec < 0 else "No Trend")
-            is_sig = bool(p_val < alpha)
+            is_sig_ols = bool(p_val_ols < alpha)
+            is_sig_mk = bool(p_val_mk < alpha)
             
             records.append({
                 "latitude": lat,
@@ -196,12 +198,16 @@ def compute_seasonal_spatial_trends(
                 "month_num": m,
                 "slope_c_per_decade": round(slope_dec, 4),
                 "slope_c_per_year": round(slope_yr, 6),
-                "p_value": round(p_val, 6),
+                "p_value_ols": round(p_val_ols, 6),
+                "p_value_mk": round(p_val_mk, 6),
+                "p_value": round(p_val_ols, 6),  # default to OLS p-value
                 "sen_slope": round(sen_slope_yr, 6),
                 "sen_slope_c_per_decade": round(sen_slope_dec, 4),
                 "r_squared": round(ols_res["r_squared"], 4),
                 "trend_direction": direction,
-                "is_significant": is_sig
+                "is_significant_ols": is_sig_ols,
+                "is_significant_mk": is_sig_mk,
+                "is_significant": is_sig_ols  # default to OLS flag
             })
             
     df_seasonal = pd.DataFrame(records)
@@ -214,8 +220,9 @@ def generate_scientific_seasonal_summary(df_seasonal: pd.DataFrame, alpha: float
     Generates an executive scientific summary of intra-annual / seasonal trends across Bangladesh.
     """
     total_records = len(df_seasonal)
-    unique_cells = df_seasonal["latitude"].nunique() * df_seasonal["longitude"].nunique()
-    total_sig = (df_seasonal["p_value"] < alpha).sum()
+    unique_cells = len(df_seasonal[["latitude", "longitude"]].drop_duplicates())
+    total_sig_ols = (df_seasonal["p_value_ols"] < alpha).sum()
+    total_sig_mk = (df_seasonal["p_value_mk"] < alpha).sum()
     
     summary_lines = [
         "=" * 80,
@@ -224,12 +231,13 @@ def generate_scientific_seasonal_summary(df_seasonal: pd.DataFrame, alpha: float
         f"Data Source:       NASA GMAO MERRA-2 (T2M)",
         f"Time Period:       2001 - 2025 (25 Years)",
         f"Inland Grid Cells: 34 mainland coordinates",
-        f"Total Records:     {total_records} (34 cells x 12 months)",
+        f"Total Records:     {total_records} ({unique_cells} cells x 12 months)",
         f"Significance Level: alpha = {alpha}",
-        f"Significant Trends: {total_sig} / {total_records} ({total_sig/total_records*100:.1f}%)",
-        "-" * 80,
-        f"{'Month':<12} | {'Mean Rate (deg C/dec)':<22} | {'Min Rate':<10} | {'Max Rate':<10} | {'Warming Cells':<14} | {'Sig (p<0.05)':<12}",
-        "-" * 80,
+        f"Significant (OLS p<0.05): {total_sig_ols} / {total_records} ({total_sig_ols/total_records*100:.1f}%)",
+        f"Significant (MK  p<0.05): {total_sig_mk} / {total_records} ({total_sig_mk/total_records*100:.1f}%)",
+        "-" * 88,
+        f"{'Month':<12} | {'Mean Rate (deg C/dec)':<22} | {'Min Rate':<10} | {'Max Rate':<10} | {'Warming Cells':<14} | {'OLS Sig':<8} | {'MK Sig':<8}",
+        "-" * 88,
     ]
     
     for m in range(1, 13):
@@ -239,13 +247,14 @@ def generate_scientific_seasonal_summary(df_seasonal: pd.DataFrame, alpha: float
         min_rate = sub["slope_c_per_decade"].min()
         max_rate = sub["slope_c_per_decade"].max()
         warming_count = (sub["slope_c_per_decade"] > 0).sum()
-        sig_count = (sub["p_value"] < alpha).sum()
+        sig_ols = (sub["p_value_ols"] < alpha).sum()
+        sig_mk = (sub["p_value_mk"] < alpha).sum()
         
         summary_lines.append(
-            f"{m_name:<12} | {mean_rate:+22.4f} | {min_rate:+10.3f} | {max_rate:+10.3f} | {warming_count:<14} | {sig_count:<12}"
+            f"{m_name:<12} | {mean_rate:+22.4f} | {min_rate:+10.3f} | {max_rate:+10.3f} | {warming_count:<14} | {sig_ols:<8} | {sig_mk:<8}"
         )
         
-    summary_lines.append("=" * 80)
+    summary_lines.append("=" * 88)
     
     # Key Scientific Findings
     monthly_means = df_seasonal.groupby("month")["slope_c_per_decade"].mean()
