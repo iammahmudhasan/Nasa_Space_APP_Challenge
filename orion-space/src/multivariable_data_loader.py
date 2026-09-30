@@ -181,7 +181,13 @@ def fetch_regional_parameter(
 
 def validate_regional_dataset(data: dict, parameter_key: str) -> dict:
     """
-    Validates structural integrity and key coverage of a regional dataset.
+    Validates structural integrity, key coverage, and absence of fill values across all cells.
+    
+    Strict Criteria:
+    - Non-empty features list
+    - Every feature has exactly 325 keys (25 years x 13 values: 12 months + 1 annual mean)
+    - Zero missing / fill values (-999.0)
+    - Full continuous coverage for 2001 - 2025
     
     Returns:
         dict: Validation metrics.
@@ -190,23 +196,38 @@ def validate_regional_dataset(data: dict, parameter_key: str) -> dict:
     if not features:
         raise ValueError(f"Dataset for {parameter_key} contains zero features.")
         
-    f0 = features[0]
-    p_dict = f0.get("properties", {}).get("parameter", {}).get(parameter_key, {})
-    all_keys = sorted(p_dict.keys())
+    all_cells_have_325 = True
+    total_values = 0
+    missing_fill_count = 0
+    years_seen = set()
     
-    # Expected: 25 years (2001-2025) x 13 values (12 months + 1 annual mean) = 325 keys
-    years = set(k[:4] for k in all_keys)
-    sample_val = list(p_dict.values())[0] if p_dict else None
+    for feat in features:
+        p_dict = feat.get("properties", {}).get("parameter", {}).get(parameter_key, {})
+        if len(p_dict) != 325:
+            all_cells_have_325 = False
+        for k, v in p_dict.items():
+            total_values += 1
+            years_seen.add(k[:4])
+            if v == -999.0 or v is None:
+                missing_fill_count += 1
+                
+    years_sorted = sorted(list(years_seen))
+    is_valid = bool(
+        len(features) > 0
+        and len(years_sorted) == 25
+        and all_cells_have_325
+        and missing_fill_count == 0
+    )
     
     metrics = {
         "parameter": parameter_key,
         "grid_cells_count": len(features),
-        "total_keys_per_cell": len(all_keys),
-        "years_covered": sorted(list(years)),
-        "first_year": min(years) if years else None,
-        "last_year": max(years) if years else None,
-        "sample_value": sample_val,
-        "valid": bool(len(features) > 0 and len(years) >= 25)
+        "total_values_checked": total_values,
+        "all_cells_325_keys": all_cells_have_325,
+        "missing_fill_count": missing_fill_count,
+        "first_year": min(years_sorted) if years_sorted else None,
+        "last_year": max(years_sorted) if years_sorted else None,
+        "valid": is_valid
     }
     return metrics
 
