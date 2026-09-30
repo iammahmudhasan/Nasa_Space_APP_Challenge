@@ -217,9 +217,10 @@ Returns the 34 mainland Bangladesh grid coordinates with nearest administrative 
     "total_inland_cells": 34,
     "warming_cells_count": 34,
     "cooling_cells_count": 0,
-    "significant_cells_ols": 33,
-    "significant_cells_mk": 34,
-    "percentage_significant_ols": 97.1,
+    "significant_cells_ols_fdr": 33,
+    "significant_cells_mk_fdr": 33,
+    "raw_significant_cells_ols": 33,
+    "percentage_significant_fdr": 97.1,
     "national_mean_rate": 0.3452,
     "min_rate": 0.2017,
     "max_rate": 0.4211,
@@ -233,10 +234,13 @@ Returns the 34 mainland Bangladesh grid coordinates with nearest administrative 
       "nearest_division": "Sylhet",
       "rate_per_decade": 0.4211,
       "p_value_ols": 0.000008,
+      "p_value_ols_formatted": "p < 1e-5",
+      "q_value_ols": 0.000008,
       "p_value_mk": 0.000021,
+      "q_value_mk": 0.000045,
       "sen_slope_per_decade": 0.4180,
-      "is_significant_ols": true,
-      "is_significant_mk": true,
+      "is_significant_ols_fdr": true,
+      "is_significant_mk_fdr": true,
       "trend_direction": "Increasing"
     },
     {
@@ -245,10 +249,13 @@ Returns the 34 mainland Bangladesh grid coordinates with nearest administrative 
       "nearest_division": "Dhaka",
       "rate_per_decade": 0.3402,
       "p_value_ols": 0.000048,
+      "p_value_ols_formatted": "0.000048",
+      "q_value_ols": 0.000054,
       "p_value_mk": 0.000321,
+      "q_value_mk": 0.000412,
       "sen_slope_per_decade": 0.3563,
-      "is_significant_ols": true,
-      "is_significant_mk": true,
+      "is_significant_ols_fdr": true,
+      "is_significant_mk_fdr": true,
       "trend_direction": "Increasing"
     }
   ],
@@ -258,19 +265,19 @@ Returns the 34 mainland Bangladesh grid coordinates with nearest administrative 
       {
         "variable": "PRECTOTCORR",
         "national_mean_rate": "+3.033 mm/day/decade",
-        "significant_cells": 20,
+        "significant_cells_fdr": 17,
         "coupling_r_with_primary": 0.22
       },
       {
         "variable": "GWETTOP",
         "national_mean_rate": "+0.0371 fraction/decade",
-        "significant_cells": 34,
+        "significant_cells_fdr": 34,
         "coupling_r_with_primary": 0.23
       },
       {
         "variable": "ALLSKY_SFC_SW_DWN",
         "national_mean_rate": "-0.153 MJ/m²/day/decade",
-        "significant_cells": 2,
+        "significant_cells_fdr": 0,
         "coupling_r_with_primary": 0.09
       }
     ]
@@ -301,12 +308,12 @@ Returns the 34 mainland Bangladesh grid coordinates with nearest administrative 
   "explanation": {
     "headline": "Nationwide Significant Post-Monsoon Warming in September (+0.35 °C/decade)",
     "key_findings": [
-      "Across all 34 mainland Bangladesh grid points, 33 cells (97.1%) demonstrate statistically significant surface warming (p < 0.05).",
+      "33 of 34 cells remained significant after Benjamini-Hochberg FDR correction at q < 0.05.",
       "Warming rates range from +0.20 °C/decade (southwest coast) to +0.42 °C/decade (northeast Sylhet).",
-      "Non-parametric Mann-Kendall tests confirm this pattern with 34/34 cells showing significant positive trends.",
+      "Non-parametric Mann-Kendall tests confirm this pattern with 33 of 34 cells showing significant positive trends at q < 0.05.",
       "Concurrently, top-layer soil moisture (GWETTOP) exhibited statistically significant increases in all 34 cells (+0.037/decade)."
     ],
-    "scientific_caution": "These numbers represent empirical statistical trends from NASA GMAO MERRA-2 (2001–2025). Correlation does not prove causation without full atmospheric boundary layer modeling."
+    "scientific_caution": "These numbers represent empirical statistical trends from NASA GMAO MERRA-2 (2001–2025). FDR correction was performed within each variable-month spatial testing family; interpretation accounts for possible spatial dependence among neighboring grid cells. Correlation does not prove causation without full atmospheric boundary layer modeling."
   }
 }
 ```
@@ -316,6 +323,8 @@ Returns the 34 mainland Bangladesh grid coordinates with nearest administrative 
 ## 4. Frontend & Backend Type Declarations (TypeScript / Pydantic)
 
 ### 4.1. TypeScript Interface (Next.js Frontend Client)
+> For complete Pydantic models, JSON schema, and deterministic retriever contract, see [query_schema.md](query_schema.md).
+
 ```typescript
 export interface AnalysisRequest {
   question: string;
@@ -332,10 +341,13 @@ export interface LocationTrendRecord {
   nearest_division: string;
   rate_per_decade: number;
   p_value_ols: number;
+  p_value_ols_formatted?: string;
+  q_value_ols: number;
   p_value_mk: number;
+  q_value_mk: number;
   sen_slope_per_decade: number;
-  is_significant_ols: boolean;
-  is_significant_mk: boolean;
+  is_significant_ols_fdr: boolean;
+  is_significant_mk_fdr: boolean;
   trend_direction: 'Increasing' | 'Decreasing' | 'No Trend';
 }
 

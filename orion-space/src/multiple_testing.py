@@ -5,18 +5,23 @@ Benjamini-Hochberg (BH) False Discovery Rate (FDR) Multiple-Testing Correction.
 
 Part of Orion Space - NASA Earth System Trend Detective.
 
-Statistical Framework:
-- Raw p-values are subject to multiple comparison issues when evaluating
-  spatial hypotheses across multiple grid cells and calendar months.
+Statistical Framework & Methodology:
+- Raw p-values are subject to multiple testing inflation when evaluating
+  multiple spatial grid cells and calendar months simultaneously.
 - Family Definition:
   * For Trends: Testing family is defined per (variable x calendar month),
     comprising m = 34 spatial grid tests across mainland Bangladesh.
+    FDR correction was performed within each variable-month spatial testing family,
+    rather than across all spatial-month-variable hypotheses globally.
   * For Relationships: Testing family is defined per (variable pair x calendar month),
     comprising m = 34 spatial correlation tests across mainland Bangladesh.
+- Statistical Caveat:
+  * BH-FDR was applied to each spatial family; the interpretation should
+    account for possible spatial dependence among neighboring cells.
 - Parametric (OLS / Pearson) and Non-Parametric (Mann-Kendall / Spearman) p-values
   are corrected separately into their respective q-values (adjusted p-values).
 - Retains all raw statistics alongside corrected q-values and significance flags
-  to maintain scientific provenance and transparency.
+  to maintain complete scientific provenance and reproducibility.
 """
 
 from pathlib import Path
@@ -293,11 +298,14 @@ def run_multiple_testing_correction(
     print(f"    - Pearson Correlation:  Raw sig (p < {alpha}): {raw_p_sig} | FDR sig (q < {alpha}): {fdr_p_sig}")
     print(f"    - Spearman Correlation: Raw sig (p < {alpha}): {raw_s_sig} | FDR sig (q < {alpha}): {fdr_s_sig}")
 
-    # Save destinations (both root data/ and orion-space/data/)
-    destinations = [
-        (data_dir_root, "root data/"),
-        (data_dir_orion, "orion-space/data/")
-    ]
+    # Save destinations (supports custom output_dir or defaults to root and orion-space)
+    if output_dir is not None:
+        destinations = [(Path(output_dir), f"custom directory ({output_dir})")]
+    else:
+        destinations = [
+            (data_dir_root, "root data/"),
+            (data_dir_orion, "orion-space/data/")
+        ]
 
     print(f"\n[3/4] Exporting Corrected Datasets (Preserving Raw Provenance)...")
     for d_path, d_label in destinations:
@@ -327,7 +335,7 @@ def run_multiple_testing_correction(
     t2m_sep_fdr = t2m_sep["is_significant_ols_fdr"].sum()
     print(f"\n  Key Query Check: T2M in September (34 cells):")
     print(f"    - Raw OLS significant: {t2m_sep_raw}/34 cells")
-    print(f"    - FDR OLS significant: {t2m_sep_fdr}/34 cells (q-values: {t2m_sep['q_value_ols'].min():.4f} - {t2m_sep['q_value_ols'].max():.4f})")
+    print(f"    - FDR OLS significant: {t2m_sep_fdr} of 34 cells remained significant after Benjamini-Hochberg FDR correction at q < {alpha} (q-values: {t2m_sep['q_value_ols'].min():.4f} - {t2m_sep['q_value_ols'].max():.4f})")
 
     summary = {
         "trends": {
